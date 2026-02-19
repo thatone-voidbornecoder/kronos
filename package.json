@@ -1,0 +1,8 @@
+{
+  "name": "kronos",
+  "version": "1.0.0",
+  "description": "Your school day HUD",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}

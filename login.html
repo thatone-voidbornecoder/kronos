@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kronos — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --gold: #f5a623; --green: #00ff88; --red: #ff4444;
+  --bg: #080810; --panel: #0d0d1a; --border: #1a1a30; --dim: #2a2a48; --dim-text: #444466;
+}
+body {
+  background: var(--bg); color: #fff; font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+  pointer-events: none; z-index: 99;
+}
+
+/* Background grid */
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: linear-gradient(var(--dim) 1px, transparent 1px), linear-gradient(90deg, var(--dim) 1px, transparent 1px);
+  background-size: 60px 60px; opacity: 0.12; pointer-events: none;
+}
+
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  padding: 3rem 2.5rem; width: 100%; max-width: 420px; position: relative; z-index: 1;
+  box-shadow: 0 0 60px rgba(0,0,0,0.6), 0 0 120px rgba(245,166,35,0.04);
+}
+
+.logo {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 2.8rem; color: var(--gold);
+  text-shadow: 0 0 40px rgba(245,166,35,0.6), 0 0 80px rgba(245,166,35,0.2);
+  letter-spacing: 0.15em; text-align: center; margin-bottom: 0.3rem;
+}
+.logo-sub {
+  font-size: 0.65rem; letter-spacing: 0.3em; color: var(--dim-text);
+  text-align: center; margin-bottom: 2.5rem;
+}
+
+.tabs { display: flex; margin-bottom: 2rem; border-bottom: 1px solid var(--border); }
+.tab {
+  flex: 1; font-family: 'Orbitron', sans-serif; font-size: 0.68rem; letter-spacing: 0.12em;
+  padding: 0.6rem; background: transparent; border: none; color: var(--dim-text);
+  cursor: pointer; transition: all 0.2s; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab:hover:not(.active) { color: #888; }
+
+.form { display: flex; flex-direction: column; gap: 1.2rem; }
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+.field label { font-size: 0.62rem; letter-spacing: 0.2em; color: var(--dim-text); font-family: 'Orbitron', sans-serif; }
+.field input {
+  background: var(--bg); border: 1px solid var(--dim); color: #ccc;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.9rem;
+  padding: 0.65rem 0.8rem; outline: none; transition: border-color 0.2s, color 0.2s;
+  width: 100%;
+}
+.field input:focus { border-color: var(--gold); color: #fff; }
+
+.submit-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.8rem; letter-spacing: 0.12em;
+  padding: 0.85rem; border: 2px solid var(--gold); background: transparent;
+  color: var(--gold); cursor: pointer; transition: all 0.2s; margin-top: 0.5rem;
+  width: 100%;
+}
+.submit-btn:hover { background: var(--gold); color: #000; box-shadow: 0 0 24px rgba(245,166,35,0.4); }
+.submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.msg {
+  font-size: 0.75rem; letter-spacing: 0.05em; text-align: center;
+  padding: 0.5rem; min-height: 1.5rem;
+}
+.msg.error { color: var(--red); }
+.msg.success { color: var(--green); }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+.loading { animation: pulse 1s infinite; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">KRONOS</div>
+  <div class="logo-sub">YOUR SCHOOL DAY HUD</div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('login')">LOGIN</button>
+    <button class="tab" onclick="setTab('signup')">SIGN UP</button>
+  </div>
+
+  <div class="form" id="form">
+    <div class="field" id="name-field" style="display:none">
+      <label>DISPLAY NAME</label>
+      <input type="text" id="name" placeholder="your name" autocomplete="name">
+    </div>
+    <div class="field">
+      <label>EMAIL</label>
+      <input type="email" id="email" placeholder="you@school.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>PASSWORD</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="msg" id="msg"></div>
+    <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">LOGIN</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL  = 'https://taoxspuawounvngmvtvv.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhb3hzcHVhd291bnZuZ212dHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0ODg1NjcsImV4cCI6MjA4NzA2NDU2N30.U89oeo8NqhFkCYzg59NB2fG9RmiM8ApMFw0HCv6PCxU';
+
+let currentTab = 'login';
+
+// Check if already logged in
+const stored = localStorage.getItem('kronos_session');
+if (stored) {
+  try {
+    const s = JSON.parse(stored);
+    if (s.access_token && s.expires_at > Date.now() / 1000) {
+      window.location.href = '/app.html';
+    }
+  } catch(e) {}
+}
+
+function setTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'signup'));
+  });
+  document.getElementById('name-field').style.display = tab === 'signup' ? 'flex' : 'none';
+  document.getElementById('submit-btn').textContent = tab === 'login' ? 'LOGIN' : 'CREATE ACCOUNT';
+  document.getElementById('msg').textContent = '';
+  document.getElementById('password').autocomplete = tab === 'login' ? 'current-password' : 'new-password';
+}
+
+function setMsg(text, type) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg ' + type;
+}
+
+async function handleSubmit() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const name     = document.getElementById('name').value.trim();
+  const btn      = document.getElementById('submit-btn');
+
+  if (!email || !password) return setMsg('Please fill in all fields.', 'error');
+  if (currentTab === 'signup' && password.length < 6) return setMsg('Password must be at least 6 characters.', 'error');
+
+  btn.disabled = true;
+  btn.textContent = 'PLEASE WAIT...';
+  btn.classList.add('loading');
+  setMsg('', '');
+
+  try {
+    if (currentTab === 'login') {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.error || data.error_description) throw new Error(data.error_description || data.error);
+      localStorage.setItem('kronos_session', JSON.stringify(data));
+      localStorage.setItem('kronos_user', JSON.stringify({ email, name: data.user?.user_metadata?.name || email.split('@')[0] }));
+      setMsg('Welcome back! Redirecting…', 'success');
+      setTimeout(() => window.location.href = '/app.html', 800);
+
+    } else {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+        body: JSON.stringify({ email, password, data: { name: name || email.split('@')[0] } })
+      });
+      const data = await res.json();
+      if (data.error || data.error_description) throw new Error(data.error_description || data.error);
+      localStorage.setItem('kronos_session', JSON.stringify(data));
+      localStorage.setItem('kronos_user', JSON.stringify({ email, name: name || email.split('@')[0] }));
+      setMsg('Account created! Redirecting…', 'success');
+      setTimeout(() => window.location.href = '/app.html', 800);
+    }
+  } catch(e) {
+    setMsg(e.message || 'Something went wrong.', 'error');
+    btn.disabled = false;
+    btn.textContent = currentTab === 'login' ? 'LOGIN' : 'CREATE ACCOUNT';
+    btn.classList.remove('loading');
+  }
+}
+
+// Enter key support
+document.addEventListener('keydown', e => { if (e.key === 'Enter') handleSubmit(); });
+</script>
+</body>
+</html>
