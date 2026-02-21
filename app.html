@@ -138,11 +138,11 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
 .current-class-name { font-family:'Orbitron',sans-serif; font-size:clamp(1.4rem,3.8vw,2.6rem); font-weight:900; color:var(--gold); text-shadow:0 0 25px rgba(245,166,35,0.45); line-height:1.2; letter-spacing:0.04em; text-transform:uppercase; }
 .current-class-name.break-name { color:var(--break-col); text-shadow:0 0 25px var(--break-glow); }
 .current-class-name.study-name { color:var(--study-col); text-shadow:0 0 25px var(--study-glow); }
-.current-class-time { font-size:0.8rem; color:#555577; letter-spacing:0.04em; margin-top:0.3rem; }
-.next-class-name { font-family:'Orbitron',sans-serif; font-size:clamp(0.9rem,2.3vw,1.5rem); font-weight:700; color:#666688; letter-spacing:0.04em; text-transform:uppercase; line-height:1.2; }
-.next-class-time { font-size:0.75rem; color:#3a3a58; margin-top:0.2rem; }
+.current-class-time { font-size:0.8rem; color:#9090bb; letter-spacing:0.04em; margin-top:0.3rem; }
+.next-class-name { font-family:'Orbitron',sans-serif; font-size:clamp(0.9rem,2.3vw,1.5rem); font-weight:700; color:#9999bb; letter-spacing:0.04em; text-transform:uppercase; line-height:1.2; }
+.next-class-time { font-size:0.75rem; color:#7878aa; margin-top:0.2rem; }
 .quote-box { margin-top:0.5rem; border-left:2px solid var(--dim); padding-left:0.8rem; max-width:340px; }
-.quote-text { font-size:0.75rem; color:#555577; line-height:1.5; font-style:italic; }
+.quote-text { font-size:0.75rem; color:#9090bb; line-height:1.5; font-style:italic; }
 .quote-author { font-size:0.62rem; color:var(--dim-text); margin-top:0.3rem; letter-spacing:0.08em; }
 
 .day-status-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1rem; z-index:20; pointer-events:none; opacity:0; transition:opacity 0.4s; }
@@ -189,7 +189,7 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
 .todo-input-row { display:flex; gap:0.5rem; padding:0.9rem 1.3rem; border-bottom:1px solid var(--border); }
 .todo-input { flex:1; background:transparent; border:none; border-bottom:1px solid var(--dim); color:#ccc; font-family:'Share Tech Mono',monospace; font-size:0.82rem; padding:0.3rem 0.2rem; outline:none; transition:border-color 0.2s; }
 .todo-input:focus { border-bottom-color:var(--gold); color:#fff; }
-.todo-due-input { background:transparent; border:none; border-bottom:1px solid var(--dim); color:#888; font-family:'Share Tech Mono',monospace; font-size:0.72rem; padding:0.2rem; outline:none; width:100%; margin-top:0.4rem; }
+.todo-due-input { background:transparent; border:none; border-bottom:1px solid var(--dim); color:#aaa; font-family:'Share Tech Mono',monospace; font-size:0.72rem; padding:0.2rem; outline:none; width:100%; margin-top:0.4rem; }
 .todo-filters { display:flex; gap:0.4rem; padding:0.5rem 1.3rem; border-bottom:1px solid var(--border); }
 .todo-filter { font-family:'Orbitron',sans-serif; font-size:0.55rem; letter-spacing:0.1em; padding:0.2rem 0.55rem; border:1px solid var(--dim); background:transparent; color:var(--dim-text); cursor:pointer; transition:all 0.15s; }
 .todo-filter:hover { border-color:var(--gold); color:var(--gold); box-shadow:none; }
@@ -661,7 +661,7 @@ function updateDisplayDayTabs() {
     const pip = t.querySelector('.day-pip'); if (pip) pip.remove();
     if (day === activeDisplayDay) t.classList.add('active');
     else if (todayIdx >= 0 && i < todayIdx) { t.classList.add('day-done'); const p=document.createElement('span');p.className='day-pip';t.appendChild(p); }
-    else if (todayIdx < 0 || i > todayIdx) t.classList.add('day-upcoming');
+    else if (todayIdx >= 0 && i > todayIdx) t.classList.add('day-upcoming');
   });
 }
 
@@ -740,8 +740,7 @@ function tick(){
   document.getElementById('wall-clock').textContent=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const periods=parseTimetable(activeDisplayDay),nowM=nowMinutes();
   const today=todayKey(),todayIdx=DAYS.indexOf(today),viewIdx=DAYS.indexOf(activeDisplayDay);
-  const isWeekend=todayIdx===-1;
-  const isPast=!isWeekend&&todayIdx>=0&&viewIdx<todayIdx,isFuture=isWeekend||(todayIdx>=0&&viewIdx>todayIdx);
+  const isPast=todayIdx>=0&&viewIdx<todayIdx,isFuture=todayIdx>=0&&viewIdx>todayIdx;
   let overlayType=null;
   if(isPast)overlayType='done';
   else if(isFuture)overlayType='upcoming';
