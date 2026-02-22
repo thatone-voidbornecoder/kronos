@@ -1663,7 +1663,7 @@ function renderFriendsList() {
   const list = document.getElementById('fs-friends-list');
   if (!list) return;
   if (!friends.length) {
-    list.innerHTML = '<div class="fs-empty-tab">No friends yet.<br>Search by @username above.</div>';
+    list.innerHTML = '<div class="fs-empty-tab">Friend requests temporarily unavailable.<br>Rolling out shortly.</div>';
     return;
   }
   list.innerHTML = friends.map(f => `
