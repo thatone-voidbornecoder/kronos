@@ -655,13 +655,13 @@ function goBack() {
 }
 function switchDisplayDay(day) { activeDisplayDay = day; updateDisplayDayTabs(); tick(); }
 function updateDisplayDayTabs() {
-  const today = todayKey(); const todayIdx = DAYS.indexOf(today);
+  const today = todayKey(); const todayIdx = DAYS.indexOf(today); const isWeekend = todayIdx === -1;
   document.querySelectorAll('.display-day-tab').forEach((t, i) => {
     const day = DAYS[i]; t.classList.remove('active','day-done','day-upcoming');
     const pip = t.querySelector('.day-pip'); if (pip) pip.remove();
     if (day === activeDisplayDay) t.classList.add('active');
-    else if (todayIdx >= 0 && i < todayIdx) { t.classList.add('day-done'); const p=document.createElement('span');p.className='day-pip';t.appendChild(p); }
-    else if (todayIdx >= 0 && i > todayIdx) t.classList.add('day-upcoming');
+    else if (!isWeekend && todayIdx >= 0 && i < todayIdx) { t.classList.add('day-done'); const p=document.createElement('span');p.className='day-pip';t.appendChild(p); }
+    else if (isWeekend || (todayIdx >= 0 && i > todayIdx)) t.classList.add('day-upcoming');
   });
 }
 
@@ -740,7 +740,8 @@ function tick(){
   document.getElementById('wall-clock').textContent=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const periods=parseTimetable(activeDisplayDay),nowM=nowMinutes();
   const today=todayKey(),todayIdx=DAYS.indexOf(today),viewIdx=DAYS.indexOf(activeDisplayDay);
-  const isPast=todayIdx>=0&&viewIdx<todayIdx,isFuture=todayIdx>=0&&viewIdx>todayIdx;
+  const isWeekend=todayIdx===-1;
+  const isPast=!isWeekend&&todayIdx>=0&&viewIdx<todayIdx,isFuture=isWeekend||(todayIdx>=0&&viewIdx>todayIdx);
   let overlayType=null;
   if(isPast)overlayType='done';
   else if(isFuture)overlayType='upcoming';
