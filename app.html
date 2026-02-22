@@ -410,6 +410,72 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
 .acct-prog-btn.active { border-color: var(--gold); background: rgba(245,166,35,0.12); color: var(--gold); }
 .acct-prog-hint { font-size: 0.58rem; color: var(--dim-text); line-height: 1.5; margin-top: 0.4rem; }
 
+
+/* ── Friends sidebar tabs ── */
+.fs-tabs {
+  display: flex; width: 100%; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  opacity: 0; transition: opacity 0.18s; pointer-events: none;
+}
+#friends-sidebar.expanded .fs-tabs {
+  opacity: 1; pointer-events: auto;
+}
+.fs-tab {
+  flex: 1; background: transparent; border: none;
+  font-family: 'Orbitron', sans-serif; font-size: 0.52rem;
+  letter-spacing: 0.12em; color: var(--dim-text);
+  padding: 0.45rem 0.2rem; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all 0.15s; position: relative;
+}
+.fs-tab:hover { color: #888; }
+.fs-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.fs-tab-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--red); color: #fff;
+  font-size: 0.42rem; width: 13px; height: 13px;
+  border-radius: 50%; margin-left: 0.3rem;
+  vertical-align: middle; opacity: 0; transition: opacity 0.2s;
+}
+.fs-tab-badge.show { opacity: 1; }
+
+/* Pulse dot on toggle when requests pending (collapsed state) */
+.fs-toggle { position: relative; }
+.fs-req-dot {
+  position: absolute; top: 1px; right: 1px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red); border: 2px solid rgba(8,8,18,0.97);
+  display: none;
+  animation: reqPulse 1.5s ease-in-out infinite;
+}
+.fs-req-dot.show { display: block; }
+@keyframes reqPulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(0.75); }
+}
+
+/* Requests tab content */
+.fs-req-item {
+  width: 100%; display: flex; align-items: center;
+  gap: 0.65rem; padding: 0.5rem 0; padding-left: 8px;
+  border-bottom: 1px solid rgba(26,26,48,0.4);
+}
+.fs-req-actions { display: flex; gap: 0.3rem; margin-top: 0.3rem; flex-wrap: wrap; }
+.fs-req-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.44rem;
+  letter-spacing: 0.08em; padding: 0.22rem 0.5rem;
+  border: 1px solid; background: transparent; cursor: pointer;
+  transition: all 0.15s;
+}
+.fs-req-btn.accept { border-color: var(--green); color: var(--green); }
+.fs-req-btn.accept:hover { background: var(--green); color: #000; box-shadow: none; }
+.fs-req-btn.decline { border-color: var(--dim); color: var(--dim-text); }
+.fs-req-btn.decline:hover { border-color: var(--red); color: var(--red); box-shadow: none; }
+.fs-empty-tab {
+  padding: 1rem 10px; font-size: 0.58rem;
+  color: var(--dim-text); line-height: 1.6;
+}
+
 #account-panel {
   position: fixed; right: 52px; top: 0; bottom: 0;
   width: 280px; background: rgba(10,10,22,0.98);
@@ -642,21 +708,34 @@ body { padding-right: 52px; }
 
 <!-- ═══════ FRIENDS SIDEBAR ═══════ -->
 <div id="friends-sidebar">
-  <button class="fs-toggle" id="fs-toggle-btn" onclick="toggleSidebar()" title="Expand / collapse">◀</button>
+  <button class="fs-toggle" id="fs-toggle-btn" onclick="toggleSidebar()" title="Expand / collapse">◀<span class="fs-req-dot" id="fs-req-dot"></span></button>
 
-  <div class="fs-section-label">ONLINE FRIENDS</div>
-
-  <!-- Add friend -->
-  <div class="fs-add-row">
-    <button class="fs-add-btn" title="Add friend" onclick="focusAddFriend()">＋</button>
-    <div class="fs-add-input-wrap">
-      <input class="fs-add-input" id="fs-add-input" placeholder="@username"
-             maxlength="30" onkeydown="if(event.key==='Enter')sendFriendRequest()">
-      <button class="fs-add-send" onclick="sendFriendRequest()" title="Send request">→</button>
-    </div>
+  <!-- Tabs -->
+  <div class="fs-tabs">
+    <button class="fs-tab active" id="fs-tab-friends" onclick="switchFsTab('friends')">FRIENDS</button>
+    <button class="fs-tab" id="fs-tab-requests" onclick="switchFsTab('requests')">
+      REQUESTS<span class="fs-tab-badge" id="fs-req-badge"></span>
+    </button>
   </div>
 
-  <div id="fs-friends-list" class="fs-friends-scroll"></div>
+  <!-- Friends panel -->
+  <div id="fs-panel-friends" style="display:flex;flex-direction:column;flex:1;min-height:0;width:100%">
+    <!-- Add friend -->
+    <div class="fs-add-row">
+      <button class="fs-add-btn" title="Add friend" onclick="focusAddFriend()">＋</button>
+      <div class="fs-add-input-wrap">
+        <input class="fs-add-input" id="fs-add-input" placeholder="@username"
+               maxlength="30" onkeydown="if(event.key==='Enter')sendFriendRequest()">
+        <button class="fs-add-send" onclick="sendFriendRequest()" title="Send request">→</button>
+      </div>
+    </div>
+    <div id="fs-friends-list" class="fs-friends-scroll"></div>
+  </div>
+
+  <!-- Requests panel -->
+  <div id="fs-panel-requests" style="display:none;flex-direction:column;flex:1;min-height:0;width:100%;overflow-y:auto">
+    <div id="fs-requests-list"></div>
+  </div>
 
   <div class="fs-divider"></div>
   <div class="fs-spacer"></div>
@@ -1525,6 +1604,7 @@ function avatarBg(name) {
 /* ── Friends list ── */
 let friends = []; // populated from Supabase
 let pendingRequests = []; // incoming friend requests
+let activeFsTab = 'friends';
 
 async function loadFriends() {
   const userId = session?.user?.id;
@@ -1562,55 +1642,76 @@ async function loadFriends() {
   renderFriendsSidebar();
 }
 
+function switchFsTab(tab) {
+  activeFsTab = tab;
+  document.getElementById('fs-tab-friends').classList.toggle('active', tab === 'friends');
+  document.getElementById('fs-tab-requests').classList.toggle('active', tab === 'requests');
+  document.getElementById('fs-panel-friends').style.display  = tab === 'friends'  ? 'flex' : 'none';
+  document.getElementById('fs-panel-requests').style.display = tab === 'requests' ? 'flex' : 'none';
+}
+
 function renderFriendsSidebar() {
+  renderFriendsList();
+  renderRequestsList();
+  updateRequestBadge();
+}
+
+function renderFriendsList() {
   const list = document.getElementById('fs-friends-list');
   if (!list) return;
-  let html = '';
-
-  // Pending requests — shown at top with accept/decline
-  if (pendingRequests.length) {
-    html += pendingRequests.map(r => `
-      <div class="fs-friend fs-pending" title="Friend request from @${r.username}">
-        <div class="fs-avatar" style="background:${avatarBg(r.username)};border:1.5px solid var(--gold)">
-          ${r.display.slice(0,1).toUpperCase()}
-          <span class="fs-status-dot offline"></span>
-        </div>
-        <div class="fs-info">
-          <div class="fs-name" style="color:var(--gold)">${r.display.toUpperCase()}</div>
-          <div style="display:flex;gap:0.3rem;margin-top:0.25rem">
-            <button onclick="respondFriendRequest('${r.id}','${r.user_id}',true)"
-              style="font-family:'Orbitron',sans-serif;font-size:0.45rem;padding:0.2rem 0.4rem;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;letter-spacing:0.08em">✓ ACCEPT</button>
-            <button onclick="respondFriendRequest('${r.id}','${r.user_id}',false)"
-              style="font-family:'Orbitron',sans-serif;font-size:0.45rem;padding:0.2rem 0.4rem;border:1px solid var(--dim);background:transparent;color:var(--dim-text);cursor:pointer;letter-spacing:0.08em">✕</button>
-          </div>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  // Accepted friends
-  if (friends.length) {
-    html += friends.map(f => `
-      <div class="fs-friend" title="@${f.username}">
-        <div class="fs-avatar" style="background:${avatarBg(f.username)}">
-          ${f.display.slice(0,1).toUpperCase()}
-          <span class="fs-status-dot ${f.status}"></span>
-        </div>
-        <div class="fs-info">
-          <div class="fs-name">${f.display.toUpperCase()}</div>
-          <div class="fs-period ${f.status}">@${f.username}</div>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  if (!html) {
-    html = '<div style="padding:0.4rem 0 0 10px;font-size:0.58rem;color:var(--dim-text);white-space:nowrap;opacity:0;transition:opacity 0.18s" class="fs-no-friends">Add friends above ↑</div>';
-    list.innerHTML = html;
-    setTimeout(() => { const el = list.querySelector('.fs-no-friends'); if(el) el.style.opacity='1'; }, 50);
+  if (!friends.length) {
+    list.innerHTML = '<div class="fs-empty-tab">No friends yet.<br>Search by @username above.</div>';
     return;
   }
-  list.innerHTML = html;
+  list.innerHTML = friends.map(f => `
+    <div class="fs-friend" title="@${f.username}">
+      <div class="fs-avatar" style="background:${avatarBg(f.username)}">
+        ${f.display.slice(0,1).toUpperCase()}
+        <span class="fs-status-dot ${f.status}"></span>
+      </div>
+      <div class="fs-info">
+        <div class="fs-name">${f.display.toUpperCase()}</div>
+        <div class="fs-period ${f.status}">@${f.username}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderRequestsList() {
+  const list = document.getElementById('fs-requests-list');
+  if (!list) return;
+  if (!pendingRequests.length) {
+    list.innerHTML = '<div class="fs-empty-tab">No pending requests.<br>When someone adds you,<br>they'll appear here.</div>';
+    return;
+  }
+  list.innerHTML = pendingRequests.map(r => `
+    <div class="fs-req-item">
+      <div class="fs-avatar" style="background:${avatarBg(r.username)};border:1.5px solid var(--gold);flex-shrink:0">
+        ${r.display.slice(0,1).toUpperCase()}
+        <span class="fs-status-dot offline"></span>
+      </div>
+      <div class="fs-info" style="opacity:1">
+        <div class="fs-name" style="color:var(--gold)">${r.display.toUpperCase()}</div>
+        <div class="fs-period">@${r.username}</div>
+        <div class="fs-req-actions">
+          <button class="fs-req-btn accept" onclick="respondFriendRequest('${r.id}','${r.user_id}',true)">✓ ACCEPT</button>
+          <button class="fs-req-btn decline" onclick="respondFriendRequest('${r.id}','${r.user_id}',false)">✕ DECLINE</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateRequestBadge() {
+  const count = pendingRequests.length;
+  const badge = document.getElementById('fs-req-badge');
+  const dot   = document.getElementById('fs-req-dot');
+  if (badge) { badge.textContent = count; badge.className = 'fs-tab-badge' + (count ? ' show' : ''); }
+  if (dot)   { dot.className = 'fs-req-dot' + (count ? ' show' : ''); }
+  // Auto-switch to requests tab if new requests arrive and user isn't already there
+  if (count && activeFsTab !== 'requests' && sidebarExpanded) {
+    // Just pulse the badge — don't auto-switch, let user choose
+  }
 }
 
 /* ── Add friend ── */
@@ -1655,11 +1756,13 @@ async function respondFriendRequest(id, fromUserId, accept) {
     if (accept) {
       await sbPatch('friendships', `id=eq.${id}`, { status: 'accepted' });
       showFsMsg('Friend added!', 'ok');
+      await loadFriends();
+      switchFsTab('friends'); // jump to friends list to see them
     } else {
       await sbDelete('friendships', `id=eq.${id}`);
       showFsMsg('Request declined', 'err');
+      await loadFriends();
     }
-    loadFriends();
   } catch(e) {
     showFsMsg('Something went wrong', 'err');
   }
