@@ -242,6 +242,334 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
 .add-subject-btn { background:transparent; border:1px solid var(--study-col); color:var(--study-col); font-family:'Orbitron',sans-serif; font-size:0.62rem; padding:0.28rem 0.7rem; cursor:pointer; transition:all 0.2s; }
 .add-subject-btn:hover { background:var(--study-col); color:#000; box-shadow:none; }
 
+
+/* ── FRIENDS SIDEBAR ── */
+#friends-sidebar {
+  position: fixed; right: 0; top: 0; bottom: 0;
+  width: 52px;
+  background: rgba(8,8,18,0.97);
+  border-left: 1px solid var(--border);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0 0.6rem;
+  z-index: 900;
+  transition: width 0.28s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+  backdrop-filter: blur(14px);
+}
+#friends-sidebar.expanded { width: 230px; }
+
+.fs-toggle {
+  flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--dim-text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem; margin-bottom: 0.3rem;
+  transition: all 0.2s;
+}
+.fs-toggle:hover { border-color: var(--gold); color: var(--gold); }
+#friends-sidebar.expanded .fs-toggle { color: var(--gold); border-color: rgba(245,166,35,0.35); }
+
+.fs-section-label {
+  font-family: 'Orbitron', sans-serif; font-size: 0.5rem;
+  letter-spacing: 0.18em; color: var(--dim-text);
+  padding: 0.3rem 0 0.2rem 10px; white-space: nowrap;
+  opacity: 0; width: 100%; transition: opacity 0.18s;
+}
+#friends-sidebar.expanded .fs-section-label { opacity: 1; }
+
+/* Add friend row */
+.fs-add-row {
+  width: 100%; display: flex; align-items: center;
+  gap: 0; padding: 0.3rem 0; padding-left: 8px;
+  overflow: hidden;
+}
+.fs-add-btn {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px dashed rgba(245,166,35,0.35); background: transparent;
+  color: rgba(245,166,35,0.6); cursor: pointer; font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; line-height: 1;
+}
+.fs-add-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(245,166,35,0.08); }
+.fs-add-input-wrap {
+  flex: 1; overflow: hidden; max-width: 0;
+  transition: max-width 0.25s; display: flex; align-items: center; gap: 0.4rem;
+}
+#friends-sidebar.expanded .fs-add-input-wrap { max-width: 160px; }
+.fs-add-input {
+  width: 110px; background: transparent;
+  border: none; border-bottom: 1px solid var(--dim);
+  color: #ccc; font-family: 'Share Tech Mono', monospace;
+  font-size: 0.72rem; padding: 0.2rem 0.3rem; outline: none;
+  transition: border-color 0.2s;
+}
+.fs-add-input:focus { border-bottom-color: var(--gold); color: #fff; }
+.fs-add-send {
+  background: transparent; border: none; color: var(--gold);
+  cursor: pointer; font-size: 0.8rem; padding: 0 0.2rem;
+  opacity: 0; transition: opacity 0.2s;
+}
+#friends-sidebar.expanded .fs-add-send { opacity: 1; }
+.fs-add-send:hover { color: var(--green); }
+
+/* Friend rows */
+.fs-friends-scroll {
+  width: 100%; flex: 1; overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: none;
+}
+.fs-friend {
+  width: 100%; display: flex; align-items: center;
+  gap: 0.65rem; padding: 0.4rem 0; padding-left: 8px;
+  position: relative; transition: background 0.15s; cursor: default;
+}
+.fs-friend:hover { background: rgba(255,255,255,0.03); }
+.fs-avatar {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-size: 0.72rem;
+  font-weight: 700; color: #fff; position: relative; letter-spacing: 0;
+}
+.fs-status-dot {
+  position: absolute; bottom: 0; right: 0;
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid rgba(8,8,18,0.97);
+}
+.fs-status-dot.class   { background: #f5a623; box-shadow: 0 0 5px rgba(245,166,35,0.9); }
+.fs-status-dot.break   { background: #b8ff3c; box-shadow: 0 0 5px rgba(184,255,60,0.9); }
+.fs-status-dot.study   { background: #00d4ff; box-shadow: 0 0 5px rgba(0,212,255,0.9); }
+.fs-status-dot.free    { background: #00ff88; box-shadow: 0 0 5px rgba(0,255,136,0.7); }
+.fs-status-dot.offline { background: #333355; }
+.fs-info {
+  opacity: 0; white-space: nowrap; transition: opacity 0.18s 0.04s; min-width: 0;
+}
+#friends-sidebar.expanded .fs-info { opacity: 1; }
+.fs-name {
+  font-family: 'Orbitron', sans-serif; font-size: 0.65rem;
+  letter-spacing: 0.05em; color: #ddd; line-height: 1.2;
+}
+.fs-period { font-size: 0.58rem; color: var(--dim-text); margin-top: 0.08rem; }
+.fs-period.class  { color: #f5a623; }
+.fs-period.break  { color: #b8ff3c; }
+.fs-period.study  { color: #00d4ff; }
+.fs-period.free   { color: #00ff88; }
+
+.fs-divider { width: calc(100% - 16px); height: 1px; background: var(--border); margin: 0.35rem 8px; flex-shrink: 0; }
+.fs-spacer  { flex: 1; min-height: 0.5rem; }
+
+/* Tool buttons */
+.fs-tool-btn {
+  width: 100%; display: flex; align-items: center;
+  gap: 0.6rem; padding: 0.5rem 0; padding-left: 8px;
+  border: none; background: transparent; cursor: pointer;
+  text-align: left; position: relative; transition: background 0.15s;
+}
+.fs-tool-btn:hover { background: rgba(255,255,255,0.035); }
+.fs-tool-icon {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; transition: all 0.2s;
+}
+.fs-tool-icon.grade { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.25); color: var(--study-col); }
+.fs-tool-btn:hover .fs-tool-icon.grade { background: rgba(0,212,255,0.22); box-shadow: 0 0 12px rgba(0,212,255,0.25); }
+.fs-tool-icon.todo  { background: rgba(245,166,35,0.1); border: 1px solid rgba(245,166,35,0.25); color: var(--gold); }
+.fs-tool-btn:hover .fs-tool-icon.todo  { background: rgba(245,166,35,0.22); box-shadow: 0 0 12px rgba(245,166,35,0.25); }
+.fs-tool-icon.account { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #aaa; }
+.fs-tool-btn:hover .fs-tool-icon.account { background: rgba(255,255,255,0.1); box-shadow: 0 0 10px rgba(255,255,255,0.08); }
+.fs-tool-label { opacity: 0; white-space: nowrap; transition: opacity 0.18s 0.04s; }
+#friends-sidebar.expanded .fs-tool-label { opacity: 1; }
+.fs-tool-label-main { font-family: 'Orbitron', sans-serif; font-size: 0.62rem; letter-spacing: 0.07em; color: #ccc; line-height: 1.2; }
+.fs-tool-label-sub  { font-size: 0.55rem; color: var(--dim-text); margin-top: 0.1rem; }
+.fs-badge {
+  position: absolute; top: 5px; left: 30px;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--red); color: #fff;
+  font-family: 'Orbitron', sans-serif; font-size: 0.42rem;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.2s;
+  border: 2px solid rgba(8,8,18,0.97);
+}
+.fs-badge.show { opacity: 1; }
+
+/* Account Settings Panel */
+
+/* Account panel — programme selector */
+.acct-prog-row {
+  display: flex; gap: 0.4rem; margin-top: 0.3rem;
+}
+.acct-prog-btn {
+  flex: 1; font-family: 'Orbitron', sans-serif; font-size: 0.58rem;
+  letter-spacing: 0.1em; padding: 0.45rem 0.2rem;
+  border: 1px solid var(--dim); background: transparent;
+  color: var(--dim-text); cursor: pointer; transition: all 0.18s;
+  text-align: center;
+}
+.acct-prog-btn:hover { border-color: var(--gold); color: var(--gold); box-shadow: none; }
+.acct-prog-btn.active { border-color: var(--gold); background: rgba(245,166,35,0.12); color: var(--gold); }
+.acct-prog-hint { font-size: 0.58rem; color: var(--dim-text); line-height: 1.5; margin-top: 0.4rem; }
+
+
+/* ── Friends sidebar tabs ── */
+.fs-tabs {
+  display: flex; width: 100%; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  opacity: 0; transition: opacity 0.18s; pointer-events: none;
+}
+#friends-sidebar.expanded .fs-tabs {
+  opacity: 1; pointer-events: auto;
+}
+.fs-tab {
+  flex: 1; background: transparent; border: none;
+  font-family: 'Orbitron', sans-serif; font-size: 0.52rem;
+  letter-spacing: 0.12em; color: var(--dim-text);
+  padding: 0.45rem 0.2rem; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all 0.15s; position: relative;
+}
+.fs-tab:hover { color: #888; }
+.fs-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.fs-tab-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--red); color: #fff;
+  font-size: 0.42rem; width: 13px; height: 13px;
+  border-radius: 50%; margin-left: 0.3rem;
+  vertical-align: middle; opacity: 0; transition: opacity 0.2s;
+}
+.fs-tab-badge.show { opacity: 1; }
+
+/* Pulse dot on toggle when requests pending (collapsed state) */
+.fs-toggle { position: relative; }
+.fs-req-dot {
+  position: absolute; top: 1px; right: 1px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red); border: 2px solid rgba(8,8,18,0.97);
+  display: none;
+  animation: reqPulse 1.5s ease-in-out infinite;
+}
+.fs-req-dot.show { display: block; }
+@keyframes reqPulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(0.75); }
+}
+
+/* Requests tab content */
+.fs-req-item {
+  width: 100%; display: flex; align-items: center;
+  gap: 0.65rem; padding: 0.5rem 0; padding-left: 8px;
+  border-bottom: 1px solid rgba(26,26,48,0.4);
+}
+.fs-req-actions { display: flex; gap: 0.3rem; margin-top: 0.3rem; flex-wrap: wrap; }
+.fs-req-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.44rem;
+  letter-spacing: 0.08em; padding: 0.22rem 0.5rem;
+  border: 1px solid; background: transparent; cursor: pointer;
+  transition: all 0.15s;
+}
+.fs-req-btn.accept { border-color: var(--green); color: var(--green); }
+.fs-req-btn.accept:hover { background: var(--green); color: #000; box-shadow: none; }
+.fs-req-btn.decline { border-color: var(--dim); color: var(--dim-text); }
+.fs-req-btn.decline:hover { border-color: var(--red); color: var(--red); box-shadow: none; }
+.fs-empty-tab {
+  padding: 1rem 10px; font-size: 0.58rem;
+  color: var(--dim-text); line-height: 1.6;
+}
+
+#account-panel {
+  position: fixed; right: 52px; top: 0; bottom: 0;
+  width: 280px; background: rgba(10,10,22,0.98);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transform: translateX(100%); opacity: 0;
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.2s, right 0.28s cubic-bezier(0.4,0,0.2,1);
+  z-index: 899; backdrop-filter: blur(14px);
+  pointer-events: none;
+}
+#account-panel.open {
+  transform: translateX(0); opacity: 1; pointer-events: auto;
+}
+#account-panel.sidebar-expanded {
+  right: 230px;
+}
+.acct-header {
+  padding: 1rem 1.2rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.acct-header h3 {
+  font-family: 'Orbitron', sans-serif; font-size: 0.72rem;
+  letter-spacing: 0.12em; color: var(--gold);
+}
+.acct-close {
+  background: transparent; border: 1px solid var(--dim);
+  color: var(--dim-text); font-size: 0.65rem;
+  padding: 0.2rem 0.5rem; cursor: pointer; transition: all 0.2s;
+}
+.acct-close:hover { border-color: var(--red); color: var(--red); box-shadow: none; }
+.acct-body { flex: 1; padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: 1.2rem; overflow-y: auto; }
+.acct-section-title {
+  font-family: 'Orbitron', sans-serif; font-size: 0.58rem;
+  letter-spacing: 0.18em; color: var(--dim-text); margin-bottom: 0.5rem;
+}
+.acct-field { display: flex; flex-direction: column; gap: 0.35rem; }
+.acct-field label { font-size: 0.62rem; color: var(--dim-text); letter-spacing: 0.08em; }
+.acct-input {
+  background: transparent; border: none; border-bottom: 1px solid var(--dim);
+  color: #ccc; font-family: 'Share Tech Mono', monospace; font-size: 0.78rem;
+  padding: 0.3rem 0.2rem; outline: none; transition: border-color 0.2s; width: 100%;
+}
+.acct-input:focus { border-bottom-color: var(--gold); color: #fff; }
+.acct-save-btn {
+  background: transparent; border: 1px solid var(--gold); color: var(--gold);
+  font-family: 'Orbitron', sans-serif; font-size: 0.62rem; letter-spacing: 0.1em;
+  padding: 0.4rem 0.8rem; cursor: pointer; transition: all 0.2s; align-self: flex-start;
+}
+.acct-save-btn:hover { background: var(--gold); color: #000; box-shadow: none; }
+.acct-save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.acct-msg { font-size: 0.65rem; min-height: 1rem; }
+.acct-msg.ok  { color: var(--green); }
+.acct-msg.err { color: var(--red); }
+.acct-divider { height: 1px; background: var(--border); }
+.acct-username-prefix {
+  font-size: 0.72rem; color: var(--dim-text); padding: 0.3rem 0.2rem 0.3rem 0;
+}
+.acct-username-row { display: flex; align-items: flex-end; gap: 0.3rem; }
+
+/* Nudge main content left of sidebar */
+body { padding-right: 52px; }
+
+
+/* ── WEEK TOGGLE (setup + display) ── */
+.week-toggle-row {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.week-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.62rem; letter-spacing: 0.12em;
+  padding: 0.28rem 0.85rem; border: 1px solid var(--dim);
+  background: transparent; color: var(--dim-text); cursor: pointer;
+  transition: all 0.15s;
+}
+.week-btn:hover { border-color: var(--gold); color: var(--gold); box-shadow: none; }
+.week-btn.active { border-color: var(--gold); background: rgba(245,166,35,0.15); color: var(--gold); }
+.week-label {
+  font-family: 'Orbitron', sans-serif; font-size: 0.52rem;
+  letter-spacing: 0.18em; color: var(--dim-text); margin-right: 0.2rem;
+}
+
+/* Display-screen week pill */
+.display-week-pill {
+  display: flex; gap: 0.2rem;
+}
+.display-week-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.52rem; letter-spacing: 0.1em;
+  padding: 0.22rem 0.55rem; border: 1px solid var(--dim);
+  background: transparent; color: var(--dim-text); cursor: pointer;
+  transition: all 0.15s;
+}
+.display-week-btn:hover { border-color: var(--gold); color: var(--gold); box-shadow: none; }
+.display-week-btn.active { border-color: var(--gold); background: var(--gold); color: #000; }
+
 @media (max-width:580px) {
   .main-display { grid-template-columns:1fr; grid-template-rows:auto 1px auto; }
   .divider { width:80%; height:1px; margin:0 auto; background:linear-gradient(to right,transparent,rgba(245,166,35,0.35),transparent) !important; }
@@ -264,6 +592,12 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
     <button onclick="logout()">LOGOUT</button>
   </div>
   <h1>⬡ KRONOS</h1>
+  <!-- Week selector -->
+  <div class="week-toggle-row">
+    <span class="week-label">WEEK</span>
+    <button class="week-btn active" id="setup-w1-btn" onclick="switchSetupWeek(1)">W1</button>
+    <button class="week-btn" id="setup-w2-btn" onclick="switchSetupWeek(2)">W2</button>
+  </div>
   <div class="day-tabs">
     <button class="day-tab active" onclick="switchDay('Mon')">MON</button>
     <button class="day-tab" onclick="switchDay('Tue')">TUE</button>
@@ -273,7 +607,19 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
   </div>
   <div class="copy-row">
     <span>Copy from:</span>
-    <select id="copy-from"><option value="">— select —</option><option>Mon</option><option>Tue</option><option>Wed</option><option>Thu</option><option>Fri</option></select>
+    <select id="copy-from">
+      <option value="">— select —</option>
+      <optgroup label="Week 1">
+        <option value="Mon_W1">Mon W1</option><option value="Tue_W1">Tue W1</option>
+        <option value="Wed_W1">Wed W1</option><option value="Thu_W1">Thu W1</option>
+        <option value="Fri_W1">Fri W1</option>
+      </optgroup>
+      <optgroup label="Week 2">
+        <option value="Mon_W2">Mon W2</option><option value="Tue_W2">Tue W2</option>
+        <option value="Wed_W2">Wed W2</option><option value="Thu_W2">Thu W2</option>
+        <option value="Fri_W2">Fri W2</option>
+      </optgroup>
+    </select>
     <button onclick="copyFromDay()" style="padding:0.28rem 0.85rem;font-size:0.65rem;">COPY</button>
   </div>
   <div class="setup-table-wrap">
@@ -296,6 +642,10 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
   <div class="top-bar">
     <div class="top-bar-left">
       <span class="clock" id="wall-clock">00:00:00</span>
+      <div class="display-week-pill">
+        <button class="display-week-btn active" id="disp-w1-btn" onclick="switchDisplayWeek(1)">W1</button>
+        <button class="display-week-btn" id="disp-w2-btn" onclick="switchDisplayWeek(2)">W2</button>
+      </div>
       <div class="display-day-tabs">
         <button class="display-day-tab" onclick="switchDisplayDay('Mon')">MON</button>
         <button class="display-day-tab" onclick="switchDisplayDay('Tue')">TUE</button>
@@ -353,9 +703,140 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
   </div>
 </div>
 
-<div class="fab-group" id="fab-group" style="display:none">
-  <button class="fab grade-fab" onclick="openDrawer('grade')" title="Grades">📊<span class="fab-badge" id="grade-badge"></span></button>
-  <button class="fab" onclick="openDrawer('todo')" title="To-Do">✓<span class="fab-badge" id="todo-badge"></span></button>
+<!-- FABs replaced by friends sidebar -->
+
+
+<!-- ═══════ FRIENDS SIDEBAR ═══════ -->
+<div id="friends-sidebar">
+  <button class="fs-toggle" id="fs-toggle-btn" onclick="toggleSidebar()" title="Expand / collapse">◀<span class="fs-req-dot" id="fs-req-dot"></span></button>
+
+  <!-- Tabs -->
+  <div class="fs-tabs">
+    <button class="fs-tab active" id="fs-tab-friends" onclick="switchFsTab('friends')">FRIENDS</button>
+    <button class="fs-tab" id="fs-tab-requests" onclick="switchFsTab('requests')">
+      REQUESTS<span class="fs-tab-badge" id="fs-req-badge"></span>
+    </button>
+  </div>
+
+  <!-- Friends panel -->
+  <div id="fs-panel-friends" style="display:flex;flex-direction:column;flex:1;min-height:0;width:100%">
+    <!-- Add friend -->
+    <div class="fs-add-row">
+      <button class="fs-add-btn" title="Add friend" onclick="focusAddFriend()">＋</button>
+      <div class="fs-add-input-wrap">
+        <input class="fs-add-input" id="fs-add-input" placeholder="@username"
+               maxlength="30" onkeydown="if(event.key==='Enter')sendFriendRequest()">
+        <button class="fs-add-send" onclick="sendFriendRequest()" title="Send request">→</button>
+      </div>
+    </div>
+    <div id="fs-friends-list" class="fs-friends-scroll"></div>
+  </div>
+
+  <!-- Requests panel -->
+  <div id="fs-panel-requests" style="display:none;flex-direction:column;flex:1;min-height:0;width:100%;overflow-y:auto">
+    <div id="fs-requests-list"></div>
+  </div>
+
+  <div class="fs-divider"></div>
+  <div class="fs-spacer"></div>
+
+  <!-- Grade Tracker -->
+  <button class="fs-tool-btn" onclick="openDrawer('grade')">
+    <span class="fs-badge" id="grade-badge"></span>
+    <span class="fs-tool-icon grade">📊</span>
+    <span class="fs-tool-label">
+      <div class="fs-tool-label-main">GRADE TRACKER</div>
+    </span>
+  </button>
+
+  <!-- To-Do -->
+  <button class="fs-tool-btn" onclick="openDrawer('todo')">
+    <span class="fs-badge" id="todo-badge"></span>
+    <span class="fs-tool-icon todo">✓</span>
+    <span class="fs-tool-label">
+      <div class="fs-tool-label-main">TO-DO LIST</div>
+    </span>
+  </button>
+
+  <!-- Account Settings -->
+  <button class="fs-tool-btn" onclick="toggleAccountPanel()">
+    <span class="fs-tool-icon account">⚙</span>
+    <span class="fs-tool-label">
+      <div class="fs-tool-label-main">ACCOUNT</div>
+      <div class="fs-tool-label-sub" id="fs-username-sub">—</div>
+    </span>
+  </button>
+</div>
+
+<!-- ═══════ ACCOUNT SETTINGS PANEL ═══════ -->
+<div id="account-panel">
+  <div class="acct-header">
+    <h3>⚙ ACCOUNT SETTINGS</h3>
+    <button class="acct-close" onclick="toggleAccountPanel()">✕ CLOSE</button>
+  </div>
+  <div class="acct-body">
+
+    <!-- Programme -->
+    <div>
+      <div class="acct-section-title">IB PROGRAMME</div>
+      <div class="acct-prog-row">
+        <button class="acct-prog-btn" data-prog="MYP" onclick="selectAcctProg('MYP')">MYP</button>
+        <button class="acct-prog-btn" data-prog="DP"  onclick="selectAcctProg('DP')">DP</button>
+        <button class="acct-prog-btn" data-prog="CP"  onclick="selectAcctProg('CP')">CP</button>
+      </div>
+      <div class="acct-prog-hint" id="acct-prog-hint"></div>
+      <div class="acct-msg" id="acct-prog-msg"></div>
+      <br>
+      <button class="acct-save-btn" onclick="saveProgramme()">SAVE PROGRAMME</button>
+    </div>
+
+    <div class="acct-divider"></div>
+
+    <!-- Username change -->
+    <div>
+      <div class="acct-section-title">USERNAME</div>
+      <div class="acct-field">
+        <label>YOUR HANDLE</label>
+        <div class="acct-username-row">
+          <span class="acct-username-prefix">@</span>
+          <input class="acct-input" id="acct-username-inp" placeholder="new_username"
+                 maxlength="30" autocomplete="off" oninput="clearAcctMsg('username')">
+        </div>
+      </div>
+      <div class="acct-msg" id="acct-username-msg"></div>
+      <br>
+      <button class="acct-save-btn" onclick="saveUsername()">SAVE USERNAME</button>
+    </div>
+
+    <div class="acct-divider"></div>
+
+    <!-- Password change -->
+    <div>
+      <div class="acct-section-title">CHANGE PASSWORD</div>
+      <div class="acct-field">
+        <label>NEW PASSWORD</label>
+        <input class="acct-input" id="acct-pw-inp" type="password" placeholder="••••••••"
+               autocomplete="new-password" oninput="clearAcctMsg('pw')">
+      </div>
+      <div class="acct-field">
+        <label>CONFIRM PASSWORD</label>
+        <input class="acct-input" id="acct-pw-confirm" type="password" placeholder="••••••••"
+               autocomplete="new-password" oninput="clearAcctMsg('pw')">
+      </div>
+      <div class="acct-msg" id="acct-pw-msg"></div>
+      <br>
+      <button class="acct-save-btn" onclick="savePassword()">CHANGE PASSWORD</button>
+    </div>
+
+    <div class="acct-divider"></div>
+
+    <!-- Danger zone -->
+    <div>
+      <div class="acct-section-title">SESSION</div>
+      <button class="acct-save-btn" style="border-color:var(--red);color:var(--red)"
+              onclick="logout()">LOGOUT</button>
+    </div>
+  </div>
 </div>
 
 <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeAllDrawers()"></div>
@@ -426,7 +907,7 @@ async function refreshIfNeeded() {
 function logout() {
   localStorage.removeItem('kronos_session');
   localStorage.removeItem('kronos_user');
-  window.location.href = '/';
+  window.location.href = '/login.html';
 }
 
 /* ══ SUPABASE DIRECT REST ══ */
@@ -470,12 +951,32 @@ async function sbUpsert(table, body, onConflict) {
 
 /* ══ INIT ══ */
 async function init() {
+  try {
   session = getSession();
   if (!session || !session.access_token) {
-    window.location.href = '/';
+    window.location.href = '/login.html';
     return;
   }
   userProfile = JSON.parse(localStorage.getItem('kronos_user') || '{}');
+  // Load username + programme from profiles table
+  try {
+    const prof = await sbGet('profiles', `user_id=eq.${session.user?.id}&select=username,programme,display_name`);
+    if (Array.isArray(prof) && prof[0]) {
+      if (prof[0].username)    userProfile.username    = prof[0].username;
+      if (prof[0].programme)   userProfile.programme   = prof[0].programme;
+      if (prof[0].display_name) userProfile.name = prof[0].display_name;
+      localStorage.setItem('kronos_user', JSON.stringify(userProfile));
+    } else {
+      // No profile row yet (old account) — create one now
+      const uid = session.user?.id;
+      await sbUpsert('profiles', {
+        id: uid, user_id: uid,
+        display_name: userProfile.name || session.user?.email?.split('@')[0] || '',
+        programme: userProfile.programme || 'DP'
+      }, 'user_id').catch(() => {});
+    }
+  } catch(e) {}
+  applyProgramme(userProfile.programme || 'DP');
   const name = userProfile.name || 'there';
   document.getElementById('user-greeting').textContent = `Hey, ${name} 👋`;
   document.getElementById('display-user-chip').textContent = name.toUpperCase();
@@ -487,7 +988,16 @@ async function init() {
     const rows = await sbGet('timetables', `user_id=eq.${userId}&select=day,periods`);
     if (Array.isArray(rows)) {
       rows.forEach(row => {
-        try { timetableData[row.day] = typeof row.periods === 'string' ? JSON.parse(row.periods) : row.periods; } catch(e) {}
+        try {
+          const data = typeof row.periods === 'string' ? JSON.parse(row.periods) : row.periods;
+          // Support both old keys (Mon) and new keys (Mon_W1)
+          if (ALL_KEYS.includes(row.day)) {
+            timetableData[row.day] = data;
+          } else if (DAYS.includes(row.day)) {
+            // Migrate legacy single-week data into W1
+            timetableData[row.day + '_W1'] = data;
+          }
+        } catch(e) {}
       });
     }
   } catch(e) { console.warn('Timetable load failed', e); }
@@ -509,17 +1019,32 @@ async function init() {
   // Hide loading, show setup
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('setup-screen').style.display = 'flex';
-  loadDayRows('Mon');
+  loadDayRows();
   renderTodos();
   updateStreak();
   renderStreak();
   pickQuote('class');
+  } catch(fatalErr) {
+    console.error('Init failed:', fatalErr);
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'flex';
+  }
 }
 
 /* ══ STATE ══ */
 const DAYS = ['Mon','Tue','Wed','Thu','Fri'];
-let timetableData = {Mon:[],Tue:[],Wed:[],Thu:[],Fri:[]};
-let activeSetupDay = 'Mon', activeDisplayDay = 'Mon', ticker = null;
+const WEEKS = [1, 2];
+const ALL_KEYS = DAYS.flatMap(d => ['W1','W2'].map(w => `${d}_${w}`));
+
+function emptyTimetable() {
+  return Object.fromEntries(ALL_KEYS.map(k => [k, []]));
+}
+let timetableData = emptyTimetable();
+let activeSetupDay = 'Mon', activeSetupWeek = 1;
+let activeDisplayDay = 'Mon', activeDisplayWeek = 1, ticker = null;
+
+function setupKey() { return `${activeSetupDay}_W${activeSetupWeek}`; }
+function displayKey() { return `${activeDisplayDay}_W${activeDisplayWeek}`; }
 const BREAK_EMOJIS = ['☕','🎮','🎵','🍕','😴','🧃','🏃','📱','🎧','🧁'];
 const STUDY_EMOJIS = ['📖','📚','✏️','🧠','💡','📝','🔬','📐','🖊️','🎯'];
 let emojiCycle = 0;
@@ -571,26 +1096,33 @@ function todayKey() { return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Dat
 function switchDay(day) {
   saveCurrentRows(); activeSetupDay = day;
   document.querySelectorAll('.day-tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === day.toUpperCase()));
-  loadDayRows(day);
+  loadDayRows();
+}
+function switchSetupWeek(w) {
+  saveCurrentRows(); activeSetupWeek = w;
+  document.getElementById('setup-w1-btn').classList.toggle('active', w === 1);
+  document.getElementById('setup-w2-btn').classList.toggle('active', w === 2);
+  loadDayRows();
 }
 function saveCurrentRows() {
-  timetableData[activeSetupDay] = Array.from(document.querySelectorAll('#table-body tr')).map(r => {
+  timetableData[setupKey()] = Array.from(document.querySelectorAll('#table-body tr')).map(r => {
     const inp = r.querySelectorAll('input'); const sel = r.querySelector('select');
     return { num: inp[0].value, name: inp[1].value, start: inp[2].value, end: inp[3].value, type: sel.value };
   });
 }
-function loadDayRows(day) {
+function loadDayRows() {
   document.getElementById('table-body').innerHTML = '';
-  const data = timetableData[day];
-  if (!data.length) { addRow(); return; }
+  const data = timetableData[setupKey()];
+  if (!data || !data.length) { addRow(); return; }
   data.forEach(d => addRow(d.num, d.name, d.start, d.end, d.type || 'class'));
 }
 function copyFromDay() {
   const from = document.getElementById('copy-from').value;
-  if (!from || from === activeSetupDay) return;
+  const cur = setupKey();
+  if (!from || from === cur) return;
   saveCurrentRows();
-  timetableData[activeSetupDay] = timetableData[from].map(r => ({ ...r }));
-  loadDayRows(activeSetupDay);
+  timetableData[cur] = (timetableData[from] || []).map(r => ({ ...r }));
+  loadDayRows();
 }
 function addRow(num='', name='', start='', end='', type='class') {
   const tbody = document.getElementById('table-body');
@@ -611,8 +1143,10 @@ function setRowClass(tr, type) {
   if (type==='break') tr.classList.add('is-break');
   if (type==='study') tr.classList.add('is-study');
 }
-function parseTimetable(day) {
-  return (timetableData[day]||[]).filter(r=>r.name&&r.start&&r.end).sort((a,b)=>a.start.localeCompare(b.start));
+function parseTimetable(day, week) {
+  const w = week || activeDisplayWeek;
+  const key = `${day}_W${w}`;
+  return (timetableData[key]||[]).filter(r=>r.name&&r.start&&r.end).sort((a,b)=>a.start.localeCompare(b.start));
 }
 
 async function saveTimetableAndLaunch() {
@@ -620,8 +1154,8 @@ async function saveTimetableAndLaunch() {
   const userId = session?.user?.id;
   if (userId) {
     try {
-      await Promise.all(DAYS.map(day =>
-        sbUpsert('timetables', { user_id: userId, day, periods: JSON.stringify(timetableData[day]) }, 'user_id,day')
+      await Promise.all(ALL_KEYS.map(key =>
+        sbUpsert('timetables', { user_id: userId, day: key, periods: JSON.stringify(timetableData[key] || []) }, 'user_id,day')
       ));
       showSaveIndicator();
     } catch(e) { console.warn('Save failed', e); }
@@ -636,12 +1170,17 @@ function showSaveIndicator() {
 }
 
 function launchDisplay() {
-  if (!DAYS.some(d => parseTimetable(d).length)) { alert('Add at least one period!'); return; }
+  if (!ALL_KEYS.some(k => { const [d,w] = k.split('_'); return parseTimetable(d, parseInt(w[1])).length; })) { alert('Add at least one period!'); return; }
+  // Restore remembered display week
+  const savedWeek = parseInt(localStorage.getItem('kronos_display_week') || '1');
+  activeDisplayWeek = (savedWeek === 2) ? 2 : 1;
+  document.getElementById('disp-w1-btn').classList.toggle('active', activeDisplayWeek === 1);
+  document.getElementById('disp-w2-btn').classList.toggle('active', activeDisplayWeek === 2);
   const today = todayKey();
   activeDisplayDay = DAYS.includes(today) ? today : 'Mon';
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('display-screen').style.display = 'flex';
-  document.getElementById('fab-group').style.display = 'flex';
+  showSidebar();
   updateDisplayDayTabs(); pickQuote('class');
   tick(); ticker = setInterval(tick, 1000);
 }
@@ -649,19 +1188,26 @@ function launchDisplay() {
 function goBack() {
   clearInterval(ticker);
   document.getElementById('display-screen').style.display = 'none';
-  document.getElementById('fab-group').style.display = 'none';
+  // fab-group removed — sidebar handles tools now
   document.getElementById('setup-screen').style.display = 'flex';
   closeAllDrawers(); loadDayRows(activeSetupDay);
 }
 function switchDisplayDay(day) { activeDisplayDay = day; updateDisplayDayTabs(); tick(); }
+function switchDisplayWeek(w) {
+  activeDisplayWeek = w;
+  localStorage.setItem('kronos_display_week', w);
+  document.getElementById('disp-w1-btn').classList.toggle('active', w === 1);
+  document.getElementById('disp-w2-btn').classList.toggle('active', w === 2);
+  updateDisplayDayTabs(); tick();
+}
 function updateDisplayDayTabs() {
-  const today = todayKey(); const todayIdx = DAYS.indexOf(today);
+  const today = todayKey(); const todayIdx = DAYS.indexOf(today); const isWeekend = todayIdx === -1;
   document.querySelectorAll('.display-day-tab').forEach((t, i) => {
     const day = DAYS[i]; t.classList.remove('active','day-done','day-upcoming');
     const pip = t.querySelector('.day-pip'); if (pip) pip.remove();
     if (day === activeDisplayDay) t.classList.add('active');
-    else if (todayIdx >= 0 && i < todayIdx) { t.classList.add('day-done'); const p=document.createElement('span');p.className='day-pip';t.appendChild(p); }
-    else if (todayIdx >= 0 && i > todayIdx) t.classList.add('day-upcoming');
+    else if (!isWeekend && todayIdx >= 0 && i < todayIdx) { t.classList.add('day-done'); const p=document.createElement('span');p.className='day-pip';t.appendChild(p); }
+    else if (isWeekend || (todayIdx >= 0 && i > todayIdx)) t.classList.add('day-upcoming');
   });
 }
 
@@ -738,9 +1284,10 @@ function fmtCountdown(sec){const s=Math.round(Math.abs(sec));return`${String(Mat
 /* ══ MAIN TICK ══ */
 function tick(){
   document.getElementById('wall-clock').textContent=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const periods=parseTimetable(activeDisplayDay),nowM=nowMinutes();
+  const periods=parseTimetable(activeDisplayDay, activeDisplayWeek),nowM=nowMinutes();
   const today=todayKey(),todayIdx=DAYS.indexOf(today),viewIdx=DAYS.indexOf(activeDisplayDay);
-  const isPast=todayIdx>=0&&viewIdx<todayIdx,isFuture=todayIdx>=0&&viewIdx>todayIdx;
+  const isWeekend=todayIdx===-1;
+  const isPast=!isWeekend&&todayIdx>=0&&viewIdx<todayIdx,isFuture=isWeekend||(todayIdx>=0&&viewIdx>todayIdx);
   let overlayType=null;
   if(isPast)overlayType='done';
   else if(isFuture)overlayType='upcoming';
@@ -949,6 +1496,385 @@ function renderGrades(){
 }
 
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ══════════════════════════════════════════════════
+   PROGRAMME (MYP / DP / CP)
+══════════════════════════════════════════════════ */
+let currentProgramme = 'DP'; // set by applyProgramme on init
+
+function applyProgramme(prog) {
+  currentProgramme = prog || 'DP';
+  const isMYP = currentProgramme === 'MYP';
+
+  // Show/hide week toggles in setup screen
+  const setupWeekRow = document.querySelector('.week-toggle-row');
+  if (setupWeekRow) setupWeekRow.style.display = isMYP ? 'flex' : 'none';
+
+  // Show/hide week pill in display screen
+  const dispWeekPill = document.querySelector('.display-week-pill');
+  if (dispWeekPill) dispWeekPill.style.display = isMYP ? 'flex' : 'none';
+
+  // If not MYP, lock both to W1 so parseTimetable always hits the right key
+  if (!isMYP) {
+    activeSetupWeek  = 1;
+    activeDisplayWeek = 1;
+  }
+
+  // Sync account panel buttons
+  document.querySelectorAll('.acct-prog-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.prog === currentProgramme)
+  );
+  const progHints = {
+    MYP: 'Week 1 / Week 2 alternating timetables enabled.',
+    DP:  'Single weekly timetable. Week toggle hidden.',
+    CP:  'Single weekly timetable. Week toggle hidden.',
+  };
+  const hintEl = document.getElementById('acct-prog-hint');
+  if (hintEl) hintEl.textContent = progHints[currentProgramme] || '';
+}
+
+function selectAcctProg(prog) {
+  // Just update UI — don't save yet (user clicks SAVE PROGRAMME)
+  document.querySelectorAll('.acct-prog-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.prog === prog)
+  );
+  const progHints = {
+    MYP: 'Week 1 / Week 2 alternating timetables enabled.',
+    DP:  'Single weekly timetable. Week toggle hidden.',
+    CP:  'Single weekly timetable. Week toggle hidden.',
+  };
+  const hintEl = document.getElementById('acct-prog-hint');
+  if (hintEl) hintEl.textContent = progHints[prog] || '';
+  // Clear any previous message
+  const msgEl = document.getElementById('acct-prog-msg');
+  if (msgEl) { msgEl.textContent = ''; msgEl.className = 'acct-msg'; }
+}
+
+async function saveProgramme() {
+  const selected = document.querySelector('.acct-prog-btn.active')?.dataset?.prog || currentProgramme;
+  const msg = document.getElementById('acct-prog-msg');
+
+  const res = await sbUpsert('profiles',
+    { id: session.user.id, user_id: session.user.id, programme: selected },
+    'user_id'
+  );
+
+  if (Array.isArray(res) && res[0]) {
+    userProfile.programme = selected;
+    localStorage.setItem('kronos_user', JSON.stringify(userProfile));
+    applyProgramme(selected);
+    msg.textContent = '✓ Programme saved'; msg.className = 'acct-msg ok';
+    // If we just switched to non-MYP and are on W2, snap back to W1
+    if (selected !== 'MYP') {
+      activeSetupWeek = 1; activeDisplayWeek = 1;
+      loadDayRows();
+    }
+  } else {
+    msg.textContent = 'Save failed — try again'; msg.className = 'acct-msg err';
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   FRIENDS SIDEBAR
+══════════════════════════════════════════════════ */
+let sidebarExpanded = false;
+let accountPanelOpen = false;
+
+function toggleSidebar() {
+  sidebarExpanded = !sidebarExpanded;
+  document.getElementById('friends-sidebar').classList.toggle('expanded', sidebarExpanded);
+  document.getElementById('fs-toggle-btn').textContent = sidebarExpanded ? '▶' : '◀';
+  document.getElementById('account-panel').classList.toggle('sidebar-expanded', sidebarExpanded);
+  if (!sidebarExpanded && accountPanelOpen) toggleAccountPanel();
+}
+
+function showSidebar() {
+  const sb = document.getElementById('friends-sidebar');
+  sb.style.display = 'flex';
+  loadFriends();
+  // Poll for new friend requests every 30s
+  setInterval(loadFriends, 30000);
+}
+
+/* ── Avatar colour (deterministic from username) ── */
+function avatarBg(name) {
+  const palette = ['#1a2a4a','#2a1a4a','#1a3a2a','#3a1a1a','#1a3a3a','#2a2a1a','#3a2a1a','#1a2a3a'];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return palette[h % palette.length];
+}
+
+/* ── Friends list ── */
+let friends = []; // populated from Supabase
+let pendingRequests = []; // incoming friend requests
+let activeFsTab = 'friends';
+
+async function loadFriends() {
+  const userId = session?.user?.id;
+  if (!userId) return;
+  try {
+    // Accepted friends
+    const rows = await sbGet('friendships',
+      `status=eq.accepted&or=(user_id.eq.${userId},friend_id.eq.${userId})&select=user_id,friend_id,profiles!friendships_friend_id_fkey(username,display_name),profiles!friendships_user_id_fkey(username,display_name)`
+    );
+    friends = (Array.isArray(rows) ? rows : []).map(r => {
+      const isInitiator = r.user_id === userId;
+      const profile = isInitiator ? r['profiles!friendships_friend_id_fkey'] : r['profiles!friendships_user_id_fkey'];
+      return {
+        username: profile?.username || '?',
+        display: profile?.display_name || profile?.username || '?',
+        status: 'offline',
+        period: 'Offline',
+      };
+    });
+
+    // Pending requests sent TO me
+    const pending = await sbGet('friendships',
+      `status=eq.pending&friend_id=eq.${userId}&select=id,user_id,profiles!friendships_user_id_fkey(username,display_name)`
+    );
+    pendingRequests = (Array.isArray(pending) ? pending : []).map(r => ({
+      id: r.id,
+      user_id: r.user_id,
+      username: r['profiles!friendships_user_id_fkey']?.username || '?',
+      display: r['profiles!friendships_user_id_fkey']?.display_name || r['profiles!friendships_user_id_fkey']?.username || '?',
+    }));
+  } catch(e) {
+    console.warn('Friends load failed', e);
+    friends = []; pendingRequests = [];
+  }
+  renderFriendsSidebar();
+}
+
+function switchFsTab(tab) {
+  activeFsTab = tab;
+  document.getElementById('fs-tab-friends').classList.toggle('active', tab === 'friends');
+  document.getElementById('fs-tab-requests').classList.toggle('active', tab === 'requests');
+  document.getElementById('fs-panel-friends').style.display  = tab === 'friends'  ? 'flex' : 'none';
+  document.getElementById('fs-panel-requests').style.display = tab === 'requests' ? 'flex' : 'none';
+}
+
+function renderFriendsSidebar() {
+  renderFriendsList();
+  renderRequestsList();
+  updateRequestBadge();
+}
+
+function renderFriendsList() {
+  const list = document.getElementById('fs-friends-list');
+  if (!list) return;
+  if (!friends.length) {
+    list.innerHTML = '<div class="fs-empty-tab">No friends yet.<br>Search by @username above.</div>';
+    return;
+  }
+  list.innerHTML = friends.map(f => `
+    <div class="fs-friend" title="@${f.username}">
+      <div class="fs-avatar" style="background:${avatarBg(f.username)}">
+        ${f.display.slice(0,1).toUpperCase()}
+        <span class="fs-status-dot ${f.status}"></span>
+      </div>
+      <div class="fs-info">
+        <div class="fs-name">${f.display.toUpperCase()}</div>
+        <div class="fs-period ${f.status}">@${f.username}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderRequestsList() {
+  const list = document.getElementById('fs-requests-list');
+  if (!list) return;
+  if (!pendingRequests.length) {
+    list.innerHTML = '<div class="fs-empty-tab">No pending requests.<br>When someone adds you,<br>they\'ll appear here.</div>';
+    return;
+  }
+  list.innerHTML = pendingRequests.map(r => `
+    <div class="fs-req-item">
+      <div class="fs-avatar" style="background:${avatarBg(r.username)};border:1.5px solid var(--gold);flex-shrink:0">
+        ${r.display.slice(0,1).toUpperCase()}
+        <span class="fs-status-dot offline"></span>
+      </div>
+      <div class="fs-info" style="opacity:1">
+        <div class="fs-name" style="color:var(--gold)">${r.display.toUpperCase()}</div>
+        <div class="fs-period">@${r.username}</div>
+        <div class="fs-req-actions">
+          <button class="fs-req-btn accept" onclick="respondFriendRequest('${r.id}','${r.user_id}',true)">✓ ACCEPT</button>
+          <button class="fs-req-btn decline" onclick="respondFriendRequest('${r.id}','${r.user_id}',false)">✕ DECLINE</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateRequestBadge() {
+  const count = pendingRequests.length;
+  const badge = document.getElementById('fs-req-badge');
+  const dot   = document.getElementById('fs-req-dot');
+  if (badge) { badge.textContent = count; badge.className = 'fs-tab-badge' + (count ? ' show' : ''); }
+  if (dot)   { dot.className = 'fs-req-dot' + (count ? ' show' : ''); }
+  // Auto-switch to requests tab if new requests arrive and user isn't already there
+  if (count && activeFsTab !== 'requests' && sidebarExpanded) {
+    // Just pulse the badge — don't auto-switch, let user choose
+  }
+}
+
+/* ── Add friend ── */
+function focusAddFriend() {
+  if (!sidebarExpanded) toggleSidebar();
+  setTimeout(() => document.getElementById('fs-add-input')?.focus(), 300);
+}
+
+async function sendFriendRequest() {
+  const input = document.getElementById('fs-add-input');
+  const username = (input.value || '').trim().replace(/^@/, '').toLowerCase();
+  if (!username) return;
+
+  try {
+    // Look up profile by username
+    const profiles = await sbGet('profiles', `username=eq.${encodeURIComponent(username)}&select=user_id,username,display_name`);
+    if (!Array.isArray(profiles) || !profiles.length) {
+      showFsMsg(`@${username} not found — make sure they've set a username in their settings`, 'err'); return;
+    }
+    const target = profiles[0];
+    const myId = session.user.id;
+    if (target.user_id === myId) { showFsMsg('That\'s you!', 'err'); return; }
+
+    // Check not already friends
+    const existing = await sbGet('friendships', `or=(and(user_id.eq.${myId},friend_id.eq.${target.user_id}),and(user_id.eq.${target.user_id},friend_id.eq.${myId}))&select=status`);
+    if (Array.isArray(existing) && existing.length) {
+      const st = existing[0].status;
+      showFsMsg(st === 'accepted' ? 'Already friends!' : 'Request already sent', 'err'); return;
+    }
+
+    await sbPost('friendships', { user_id: myId, friend_id: target.user_id, status: 'pending' });
+    input.value = '';
+    showFsMsg(`Request sent to @${username}!`, 'ok');
+    loadFriends();
+  } catch(e) {
+    showFsMsg('Something went wrong', 'err');
+  }
+}
+
+async function respondFriendRequest(id, fromUserId, accept) {
+  try {
+    if (accept) {
+      await sbPatch('friendships', `id=eq.${id}`, { status: 'accepted' });
+      showFsMsg('Friend added!', 'ok');
+      await loadFriends();
+      switchFsTab('friends'); // jump to friends list to see them
+    } else {
+      await sbDelete('friendships', `id=eq.${id}`);
+      showFsMsg('Request declined', 'err');
+      await loadFriends();
+    }
+  } catch(e) {
+    showFsMsg('Something went wrong', 'err');
+  }
+}
+
+let fsMsgTimer;
+function showFsMsg(msg, type) {
+  // Show a brief toast under the add input
+  let toast = document.getElementById('fs-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'fs-toast';
+    toast.style.cssText = 'position:fixed;right:54px;top:90px;background:var(--panel);border:1px solid var(--border);color:#ccc;font-size:0.65rem;padding:0.35rem 0.7rem;white-space:nowrap;z-index:1100;transition:opacity 0.3s;font-family:Share Tech Mono,monospace;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.color = type === 'ok' ? 'var(--green)' : 'var(--red)';
+  toast.style.opacity = '1';
+  clearTimeout(fsMsgTimer);
+  fsMsgTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2800);
+}
+
+/* ── Badge updates ── */
+function updateSidebarBadges() {
+  const todoBadge = document.getElementById('todo-badge');
+  if (todoBadge) {
+    const active = todos.filter(t => !t.done).length;
+    todoBadge.textContent = active;
+    todoBadge.className = 'fs-badge' + (active > 0 ? ' show' : '');
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   ACCOUNT SETTINGS PANEL
+══════════════════════════════════════════════════ */
+function toggleAccountPanel() {
+  accountPanelOpen = !accountPanelOpen;
+  document.getElementById('account-panel').classList.toggle('open', accountPanelOpen);
+  if (accountPanelOpen) {
+    // Pre-fill username
+    if (userProfile?.username) {
+      document.getElementById('acct-username-inp').value = userProfile.username;
+      document.getElementById('fs-username-sub').textContent = '@' + userProfile.username;
+    }
+    // Sync programme buttons to current state
+    applyProgramme(userProfile?.programme || currentProgramme);
+    const msgEl = document.getElementById('acct-prog-msg');
+    if (msgEl) { msgEl.textContent = ''; msgEl.className = 'acct-msg'; }
+  }
+}
+
+function clearAcctMsg(type) {
+  if (type === 'username') document.getElementById('acct-username-msg').textContent = '';
+  if (type === 'pw') document.getElementById('acct-pw-msg').textContent = '';
+}
+
+async function saveUsername() {
+  const inp = document.getElementById('acct-username-inp');
+  const msg = document.getElementById('acct-username-msg');
+  const raw = inp.value.trim().toLowerCase().replace(/[^a-z0-9_\.]/g, '');
+  if (raw.length < 3) { msg.textContent = 'Min 3 characters'; msg.className = 'acct-msg err'; return; }
+  if (raw.length > 30) { msg.textContent = 'Max 30 characters'; msg.className = 'acct-msg err'; return; }
+
+  // Check uniqueness
+  const existing = await sbGet('profiles', `username=eq.${encodeURIComponent(raw)}&select=user_id`);
+  if (Array.isArray(existing) && existing.length && existing[0].user_id !== session.user.id) {
+    msg.textContent = '@' + raw + ' is already taken'; msg.className = 'acct-msg err'; return;
+  }
+
+  // Upsert profile — also insert programme so old accounts get a full row
+  const prog = userProfile?.programme || 'DP';
+  const res = await sbUpsert('profiles',
+    { id: session.user.id, user_id: session.user.id, username: raw, display_name: userProfile?.name || '', programme: prog },
+    'user_id'
+  );
+  // Supabase returns [] or [{...}] — both mean success if no error thrown
+  if (res && !res.error && !res.message) {
+    userProfile.username = raw;
+    localStorage.setItem('kronos_user', JSON.stringify(userProfile));
+    document.getElementById('fs-username-sub').textContent = '@' + raw;
+    msg.textContent = '✓ Username saved'; msg.className = 'acct-msg ok';
+  } else {
+    const errMsg = res?.message || res?.error || 'Save failed — try again';
+    msg.textContent = errMsg; msg.className = 'acct-msg err';
+  }
+}
+
+async function savePassword() {
+  const pw  = document.getElementById('acct-pw-inp').value;
+  const pw2 = document.getElementById('acct-pw-confirm').value;
+  const msg = document.getElementById('acct-pw-msg');
+
+  if (pw.length < 8) { msg.textContent = 'Min 8 characters'; msg.className = 'acct-msg err'; return; }
+  if (pw !== pw2)    { msg.textContent = 'Passwords don\'t match'; msg.className = 'acct-msg err'; return; }
+
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    method: 'PUT',
+    headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pw })
+  });
+  const data = await res.json();
+  if (data.id) {
+    msg.textContent = '✓ Password updated'; msg.className = 'acct-msg ok';
+    document.getElementById('acct-pw-inp').value = '';
+    document.getElementById('acct-pw-confirm').value = '';
+  } else {
+    msg.textContent = data.msg || 'Update failed'; msg.className = 'acct-msg err';
+  }
+}
 
 init();
 </script>
