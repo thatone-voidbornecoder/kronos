@@ -951,6 +951,7 @@ async function sbUpsert(table, body, onConflict) {
 
 /* ══ INIT ══ */
 async function init() {
+  try {
   session = getSession();
   if (!session || !session.access_token) {
     window.location.href = '/';
@@ -1023,6 +1024,11 @@ async function init() {
   updateStreak();
   renderStreak();
   pickQuote('class');
+  } catch(fatalErr) {
+    console.error('Init failed:', fatalErr);
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'flex';
+  }
 }
 
 /* ══ STATE ══ */
@@ -1182,7 +1188,7 @@ function launchDisplay() {
 function goBack() {
   clearInterval(ticker);
   document.getElementById('display-screen').style.display = 'none';
-  document.getElementById('fab-group').style.display = 'none';
+  // fab-group removed — sidebar handles tools now
   document.getElementById('setup-screen').style.display = 'flex';
   closeAllDrawers(); loadDayRows(activeSetupDay);
 }
