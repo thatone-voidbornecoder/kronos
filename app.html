@@ -337,11 +337,11 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
   width: 10px; height: 10px; border-radius: 50%;
   border: 2px solid rgba(8,8,18,0.97);
 }
-.fs-status-dot.class   { background: #f5a623; box-shadow: 0 0 5px rgba(245,166,35,0.9); }
+.fs-status-dot.class   { background: #888899; box-shadow: none; }
 .fs-status-dot.break   { background: #b8ff3c; box-shadow: 0 0 5px rgba(184,255,60,0.9); }
 .fs-status-dot.study   { background: #00d4ff; box-shadow: 0 0 5px rgba(0,212,255,0.9); }
 .fs-status-dot.free    { background: #00ff88; box-shadow: 0 0 5px rgba(0,255,136,0.7); }
-.fs-status-dot.offline { background: #333355; }
+.fs-status-dot.offline { background: transparent; border: 1.5px solid #555566; }
 .fs-info {
   opacity: 0; white-space: nowrap; transition: opacity 0.18s 0.04s; min-width: 0;
 }
@@ -351,7 +351,7 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
   letter-spacing: 0.05em; color: #ddd; line-height: 1.2;
 }
 .fs-period { font-size: 0.58rem; color: var(--dim-text); margin-top: 0.08rem; }
-.fs-period.class  { color: #f5a623; }
+.fs-period.class  { color: #888899; }
 .fs-period.break  { color: #b8ff3c; }
 .fs-period.study  { color: #00d4ff; }
 .fs-period.free   { color: #00ff88; }
@@ -1616,6 +1616,51 @@ let friends = []; // populated from Supabase
 let pendingRequests = []; // incoming friend requests
 let activeFsTab = 'friends';
 
+
+/* ── Compute a friend's live status from their timetable ── */
+function computeFriendStatus(timetable) {
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const todayName = days[new Date().getDay()];
+  const weekdays = ['Mon','Tue','Wed','Thu','Fri'];
+  if (!weekdays.includes(todayName)) return { type: 'offline', name: 'Weekend' };
+
+  // Try W1 and W2 keys, fall back to plain day key
+  const now = new Date();
+  const nowM = now.getHours() * 60 + now.getMinutes();
+
+  const keysToTry = [`${todayName}_W1`, `${todayName}_W2`, todayName];
+  let periods = [];
+  for (const k of keysToTry) {
+    if (timetable[k] && timetable[k].length) { periods = timetable[k]; break; }
+  }
+  if (!periods.length) return { type: 'offline', name: 'No timetable' };
+
+  const sorted = periods
+    .filter(p => p.name && p.start && p.end)
+    .sort((a, b) => a.start.localeCompare(b.start));
+
+  for (const p of sorted) {
+    const [sh, sm] = p.start.split(':').map(Number);
+    const [eh, em] = p.end.split(':').map(Number);
+    const startM = sh * 60 + sm;
+    const endM   = eh * 60 + em;
+    if (nowM >= startM && nowM < endM) {
+      return { type: p.type || 'class', name: p.name };
+    }
+  }
+  // Before first period or after last
+  const firstStart = sorted[0]?.start;
+  const lastEnd    = sorted[sorted.length - 1]?.end;
+  if (firstStart && lastEnd) {
+    const [fh, fm] = firstStart.split(':').map(Number);
+    const [lh, lm] = lastEnd.split(':').map(Number);
+    if (nowM < fh * 60 + fm || nowM >= lh * 60 + lm) {
+      return { type: 'offline', name: 'Not in school' };
+    }
+  }
+  return { type: 'free', name: 'Free period' };
+}
+
 async function loadFriends() {
   const userId = session?.user?.id;
   if (!userId) return;
@@ -1635,11 +1680,28 @@ async function loadFriends() {
       const profs = await sbGet('profiles',
         `user_id=in.(${friendIds.join(',')})&select=user_id,username,display_name`
       );
-      friends = (Array.isArray(profs) ? profs : []).map(p => ({
-        username: p.username || '?',
-        display: p.display_name || p.username || '?',
-        status: 'offline',
-      }));
+      // Fetch their timetables to compute live status
+      const friendProfs = (Array.isArray(profs) ? profs : []);
+      const timetableRows = await sbGet('timetables',
+        `user_id=in.(${friendIds.join(',')})&select=user_id,day,periods`
+      );
+      const friendTimetables = {};
+      (Array.isArray(timetableRows) ? timetableRows : []).forEach(r => {
+        if (!friendTimetables[r.user_id]) friendTimetables[r.user_id] = {};
+        try {
+          friendTimetables[r.user_id][r.day] = typeof r.periods === 'string' ? JSON.parse(r.periods) : r.periods;
+        } catch(e) {}
+      });
+
+      friends = friendProfs.map(p => {
+        const status = computeFriendStatus(friendTimetables[p.user_id] || {});
+        return {
+          username: p.username || '?',
+          display: p.display_name || p.username || '?',
+          status: status.type,
+          period: status.name,
+        };
+      });
     } else {
       friends = [];
     }
@@ -1702,7 +1764,7 @@ function renderFriendsList() {
       </div>
       <div class="fs-info">
         <div class="fs-name">${f.display.toUpperCase()}</div>
-        <div class="fs-period ${f.status}">@${f.username}</div>
+        <div class="fs-period ${f.status}">${f.period && f.period !== 'Offline' ? f.period : '@' + f.username}</div>
       </div>
     </div>
   `).join('');
