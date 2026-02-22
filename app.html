@@ -907,7 +907,7 @@ async function refreshIfNeeded() {
 function logout() {
   localStorage.removeItem('kronos_session');
   localStorage.removeItem('kronos_user');
-  window.location.href = '/';
+  window.location.href = '/login.html';
 }
 
 /* ══ SUPABASE DIRECT REST ══ */
@@ -954,7 +954,7 @@ async function init() {
   try {
   session = getSession();
   if (!session || !session.access_token) {
-    window.location.href = '/';
+    window.location.href = '/login.html';
     return;
   }
   userProfile = JSON.parse(localStorage.getItem('kronos_user') || '{}');
