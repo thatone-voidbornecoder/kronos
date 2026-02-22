@@ -1497,9 +1497,6 @@ function renderGrades(){
 
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-init();
-
-
 /* ══════════════════════════════════════════════════
    PROGRAMME (MYP / DP / CP)
 ══════════════════════════════════════════════════ */
@@ -1878,6 +1875,8 @@ async function savePassword() {
     msg.textContent = data.msg || 'Update failed'; msg.className = 'acct-msg err';
   }
 }
+
+init();
 </script>
 </body>
 </html>
