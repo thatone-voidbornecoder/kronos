@@ -1592,7 +1592,7 @@ function showSidebar() {
   const sb = document.getElementById('friends-sidebar');
   sb.style.display = 'flex';
   loadFriends();
-  // Poll for new friend requests every 30s
+  // Poll for friend updates — 30s normally, speeds up after activity
   setInterval(loadFriends, 30000);
 }
 
@@ -1772,6 +1772,7 @@ async function sendFriendRequest() {
     input.value = '';
     showFsMsg(`Request sent to @${username}!`, 'ok');
     loadFriends();
+    startFastPoll();
   } catch(e) {
     showFsMsg('Something went wrong', 'err');
   }
@@ -1783,7 +1784,8 @@ async function respondFriendRequest(id, fromUserId, accept) {
       await sbPatch('friendships', `id=eq.${id}`, { status: 'accepted' });
       showFsMsg('Friend added!', 'ok');
       await loadFriends();
-      switchFsTab('friends'); // jump to friends list to see them
+      switchFsTab('friends');
+      startFastPoll();
     } else {
       await sbDelete('friendships', `id=eq.${id}`);
       showFsMsg('Request declined', 'err');
@@ -1792,6 +1794,18 @@ async function respondFriendRequest(id, fromUserId, accept) {
   } catch(e) {
     showFsMsg('Something went wrong', 'err');
   }
+}
+
+let fastPollTimer = null;
+function startFastPoll() {
+  // Poll every 3s for 60s after sending/accepting a request
+  // so both sides see the update almost instantly
+  let ticks = 0;
+  if (fastPollTimer) clearInterval(fastPollTimer);
+  fastPollTimer = setInterval(() => {
+    loadFriends();
+    if (++ticks >= 20) { clearInterval(fastPollTimer); fastPollTimer = null; }
+  }, 3000);
 }
 
 let fsMsgTimer;
