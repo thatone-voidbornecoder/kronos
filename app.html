@@ -880,11 +880,20 @@ async function init() {
   userProfile = JSON.parse(localStorage.getItem('kronos_user') || '{}');
   // Load username + programme from profiles table
   try {
-    const prof = await sbGet('profiles', `user_id=eq.${session.user?.id}&select=username,programme`);
+    const prof = await sbGet('profiles', `user_id=eq.${session.user?.id}&select=username,programme,display_name`);
     if (Array.isArray(prof) && prof[0]) {
-      if (prof[0].username)   userProfile.username   = prof[0].username;
-      if (prof[0].programme)  userProfile.programme  = prof[0].programme;
+      if (prof[0].username)    userProfile.username    = prof[0].username;
+      if (prof[0].programme)   userProfile.programme   = prof[0].programme;
+      if (prof[0].display_name) userProfile.name = prof[0].display_name;
       localStorage.setItem('kronos_user', JSON.stringify(userProfile));
+    } else {
+      // No profile row yet (old account) — create one now
+      const uid = session.user?.id;
+      await sbUpsert('profiles', {
+        id: uid, user_id: uid,
+        display_name: userProfile.name || session.user?.email?.split('@')[0] || '',
+        programme: userProfile.programme || 'DP'
+      }, 'user_id').catch(() => {});
     }
   } catch(e) {}
   applyProgramme(userProfile.programme || 'DP');
@@ -1464,7 +1473,7 @@ async function saveProgramme() {
   const msg = document.getElementById('acct-prog-msg');
 
   const res = await sbUpsert('profiles',
-    { user_id: session.user.id, programme: selected },
+    { id: session.user.id, user_id: session.user.id, programme: selected },
     'user_id'
   );
 
@@ -1619,7 +1628,7 @@ async function sendFriendRequest() {
     // Look up profile by username
     const profiles = await sbGet('profiles', `username=eq.${encodeURIComponent(username)}&select=user_id,username,display_name`);
     if (!Array.isArray(profiles) || !profiles.length) {
-      showFsMsg(`@${username} not found`, 'err'); return;
+      showFsMsg(`@${username} not found — make sure they've set a username in their settings`, 'err'); return;
     }
     const target = profiles[0];
     const myId = session.user.id;
@@ -1723,7 +1732,7 @@ async function saveUsername() {
   // Upsert profile — also insert programme so old accounts get a full row
   const prog = userProfile?.programme || 'DP';
   const res = await sbUpsert('profiles',
-    { user_id: session.user.id, username: raw, display_name: userProfile?.name || '', programme: prog },
+    { id: session.user.id, user_id: session.user.id, username: raw, display_name: userProfile?.name || '', programme: prog },
     'user_id'
   );
   // Supabase returns [] or [{...}] — both mean success if no error thrown
