@@ -1613,31 +1613,52 @@ async function loadFriends() {
   const userId = session?.user?.id;
   if (!userId) return;
   try {
-    // Accepted friends
+    // Step 1: get accepted friendship rows
     const rows = await sbGet('friendships',
-      `status=eq.accepted&or=(user_id.eq.${userId},friend_id.eq.${userId})&select=user_id,friend_id,profiles!friendships_friend_id_fkey(username,display_name),profiles!friendships_user_id_fkey(username,display_name)`
+      `status=eq.accepted&or=(user_id.eq.${userId},friend_id.eq.${userId})&select=user_id,friend_id`
     );
-    friends = (Array.isArray(rows) ? rows : []).map(r => {
-      const isInitiator = r.user_id === userId;
-      const profile = isInitiator ? r['profiles!friendships_friend_id_fkey'] : r['profiles!friendships_user_id_fkey'];
-      return {
-        username: profile?.username || '?',
-        display: profile?.display_name || profile?.username || '?',
-        status: 'offline',
-        period: 'Offline',
-      };
-    });
 
-    // Pending requests sent TO me
+    // Step 2: collect the other person's user_id from each row
+    const friendIds = (Array.isArray(rows) ? rows : []).map(r =>
+      r.user_id === userId ? r.friend_id : r.user_id
+    ).filter(Boolean);
+
+    // Step 3: fetch their profiles in one query
+    if (friendIds.length) {
+      const profs = await sbGet('profiles',
+        `user_id=in.(${friendIds.join(',')})&select=user_id,username,display_name`
+      );
+      friends = (Array.isArray(profs) ? profs : []).map(p => ({
+        username: p.username || '?',
+        display: p.display_name || p.username || '?',
+        status: 'offline',
+      }));
+    } else {
+      friends = [];
+    }
+
+    // Step 4: pending requests sent TO me
     const pending = await sbGet('friendships',
-      `status=eq.pending&friend_id=eq.${userId}&select=id,user_id,profiles!friendships_user_id_fkey(username,display_name)`
+      `status=eq.pending&friend_id=eq.${userId}&select=id,user_id`
     );
-    pendingRequests = (Array.isArray(pending) ? pending : []).map(r => ({
-      id: r.id,
-      user_id: r.user_id,
-      username: r['profiles!friendships_user_id_fkey']?.username || '?',
-      display: r['profiles!friendships_user_id_fkey']?.display_name || r['profiles!friendships_user_id_fkey']?.username || '?',
-    }));
+    const pendingIds = (Array.isArray(pending) ? pending : []).map(r => r.user_id).filter(Boolean);
+
+    if (pendingIds.length) {
+      const pendingProfs = await sbGet('profiles',
+        `user_id=in.(${pendingIds.join(',')})&select=user_id,username,display_name`
+      );
+      const profMap = {};
+      (Array.isArray(pendingProfs) ? pendingProfs : []).forEach(p => profMap[p.user_id] = p);
+      pendingRequests = (Array.isArray(pending) ? pending : []).map(r => ({
+        id: r.id,
+        user_id: r.user_id,
+        username: profMap[r.user_id]?.username || '?',
+        display: profMap[r.user_id]?.display_name || profMap[r.user_id]?.username || '?',
+      }));
+    } else {
+      pendingRequests = [];
+    }
+
   } catch(e) {
     console.warn('Friends load failed', e);
     friends = []; pendingRequests = [];
@@ -1738,9 +1759,11 @@ async function sendFriendRequest() {
     const myId = session.user.id;
     if (target.user_id === myId) { showFsMsg('That\'s you!', 'err'); return; }
 
-    // Check not already friends
-    const existing = await sbGet('friendships', `or=(and(user_id.eq.${myId},friend_id.eq.${target.user_id}),and(user_id.eq.${target.user_id},friend_id.eq.${myId}))&select=status`);
-    if (Array.isArray(existing) && existing.length) {
+    // Check not already friends (two simple queries — one for each direction)
+    const ex1 = await sbGet('friendships', `user_id=eq.${myId}&friend_id=eq.${target.user_id}&select=status`);
+    const ex2 = await sbGet('friendships', `user_id=eq.${target.user_id}&friend_id=eq.${myId}&select=status`);
+    const existing = [...(Array.isArray(ex1)?ex1:[]), ...(Array.isArray(ex2)?ex2:[])];
+    if (existing.length) {
       const st = existing[0].status;
       showFsMsg(st === 'accepted' ? 'Already friends!' : 'Request already sent', 'err'); return;
     }
