@@ -85,6 +85,54 @@ body::after {
 
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
 .loading { animation: pulse 1s infinite; }
+
+/* field-level messages */
+.field-msg { font-size: 0.62rem; min-height: 0.9rem; letter-spacing: 0.05em; margin-top: 0.1rem; }
+.field-msg.err { color: var(--red); }
+.field-msg.ok  { color: var(--green); }
+.field-msg.dim { color: var(--dim-text); }
+
+/* username prefix */
+.input-wrap { position: relative; display: flex; align-items: center; }
+.input-prefix { position: absolute; left: 0.8rem; color: var(--dim-text); font-size: 0.9rem; pointer-events: none; }
+.input-prefixed { padding-left: 1.5rem !important; }
+
+/* forgot password row */
+.pw-label-row { display: flex; align-items: center; justify-content: space-between; }
+.forgot-btn {
+  background: transparent; border: none; color: var(--dim-text);
+  font-family: 'Share Tech Mono', monospace; font-size: 0.62rem;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  transition: color 0.2s; padding: 0;
+}
+.forgot-btn:hover { color: var(--gold); }
+
+/* save-password hint */
+.save-hint {
+  background: rgba(245,166,35,0.04); border: 1px solid rgba(245,166,35,0.14);
+  padding: 0.5rem 0.7rem; font-size: 0.62rem; color: var(--dim-text);
+  line-height: 1.6; letter-spacing: 0.02em;
+}
+.save-hint strong { color: rgba(245,166,35,0.75); }
+
+/* input states */
+.field input.input-err { border-color: var(--red); }
+.field input.input-ok  { border-color: var(--green); }
+
+/* Programme selector */
+.prog-selector {
+  display: flex; gap: 0.5rem;
+}
+.prog-btn {
+  flex: 1; font-family: 'Orbitron', sans-serif; font-size: 0.6rem;
+  letter-spacing: 0.1em; padding: 0.55rem 0.3rem;
+  border: 1px solid var(--dim); background: transparent;
+  color: var(--dim-text); cursor: pointer; transition: all 0.18s;
+  text-align: center;
+}
+.prog-btn:hover { border-color: var(--gold); color: var(--gold); }
+.prog-btn.active { border-color: var(--gold); background: rgba(245,166,35,0.12); color: var(--gold); }
+.prog-hint { font-size: 0.58rem; color: var(--dim-text); line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -98,18 +146,53 @@ body::after {
   </div>
 
   <div class="form" id="form">
+    <!-- Signup-only: display name -->
     <div class="field" id="name-field" style="display:none">
       <label>DISPLAY NAME</label>
       <input type="text" id="name" placeholder="your name" autocomplete="name">
     </div>
+
+    <!-- Signup-only: programme -->
+    <div class="field" id="programme-field" style="display:none">
+      <label>IB PROGRAMME</label>
+      <div class="prog-selector" id="prog-selector">
+        <button type="button" class="prog-btn active" data-prog="MYP" onclick="selectProg('MYP')">MYP</button>
+        <button type="button" class="prog-btn" data-prog="DP" onclick="selectProg('DP')">DP</button>
+        <button type="button" class="prog-btn" data-prog="CP" onclick="selectProg('CP')">CP</button>
+      </div>
+      <div class="prog-hint" id="prog-hint">MYP: Week 1 / Week 2 alternating timetables enabled.</div>
+    </div>
+
+    <!-- Signup-only: username -->
+    <div class="field" id="username-field" style="display:none">
+      <label>USERNAME</label>
+      <div class="input-wrap">
+        <span class="input-prefix">@</span>
+        <input class="input-prefixed" type="text" id="username"
+               placeholder="your_handle" autocomplete="off"
+               maxlength="30" oninput="checkUsernameAvail()">
+      </div>
+      <div class="field-msg" id="username-msg"></div>
+    </div>
+
     <div class="field">
       <label>EMAIL</label>
       <input type="email" id="email" placeholder="you@school.com" autocomplete="email">
     </div>
+
     <div class="field">
-      <label>PASSWORD</label>
+      <div class="pw-label-row">
+        <label>PASSWORD</label>
+        <button type="button" class="forgot-btn" id="forgot-btn" onclick="doForgotPassword()">Forgot password?</button>
+      </div>
       <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+      <div class="field-msg" id="pw-msg"></div>
     </div>
+
+    <div class="save-hint">
+      💡 <strong>Tip:</strong> Save your password in your browser so you don't have to type it every time.
+    </div>
+
     <div class="msg" id="msg"></div>
     <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">LOGIN</button>
   </div>
@@ -118,87 +201,204 @@ body::after {
 <script>
 const SUPABASE_URL  = 'https://taoxspuawounvngmvtvv.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhb3hzcHVhd291bnZuZ212dHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0ODg1NjcsImV4cCI6MjA4NzA2NDU2N30.U89oeo8NqhFkCYzg59NB2fG9RmiM8ApMFw0HCv6PCxU';
+const H = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON };
 
 let currentTab = 'login';
+let usernameAvailable = false;
+let selectedProg = 'MYP';
 
-// Check if already logged in
-const stored = localStorage.getItem('kronos_session');
-if (stored) {
-  try {
-    const s = JSON.parse(stored);
-    if (s.access_token && s.expires_at > Date.now() / 1000) {
-      window.location.href = '/app.html';
-    }
-  } catch(e) {}
+function selectProg(prog) {
+  selectedProg = prog;
+  document.querySelectorAll('.prog-btn').forEach(b => b.classList.toggle('active', b.dataset.prog === prog));
+  const hints = {
+    MYP: 'MYP: Week 1 / Week 2 alternating timetables enabled.',
+    DP:  'DP: Single weekly timetable.',
+    CP:  'CP: Single weekly timetable.',
+  };
+  document.getElementById('prog-hint').textContent = hints[prog] || '';
 }
+let usernameTimer;
 
+/* ── Auto-redirect if already logged in ── */
+try {
+  const s = JSON.parse(localStorage.getItem('kronos_session') || '{}');
+  if (s.access_token && s.expires_at > Date.now() / 1000) window.location.href = '/app.html';
+} catch(e) {}
+
+/* ── Tab switching ── */
 function setTab(tab) {
   currentTab = tab;
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'signup'));
-  });
-  document.getElementById('name-field').style.display = tab === 'signup' ? 'flex' : 'none';
-  document.getElementById('submit-btn').textContent = tab === 'login' ? 'LOGIN' : 'CREATE ACCOUNT';
+  document.querySelectorAll('.tab').forEach((t, i) =>
+    t.classList.toggle('active', (i === 0) === (tab === 'login'))
+  );
+  const isSignup = tab === 'signup';
+  document.getElementById('name-field').style.display       = isSignup ? 'flex' : 'none';
+  document.getElementById('programme-field').style.display  = isSignup ? 'flex' : 'none';
+  document.getElementById('username-field').style.display   = isSignup ? 'flex' : 'none';
+  document.getElementById('forgot-btn').style.display       = isSignup ? 'none' : 'inline';
+  document.getElementById('submit-btn').textContent       = isSignup ? 'CREATE ACCOUNT' : 'LOGIN';
+  document.getElementById('password').autocomplete        = isSignup ? 'new-password' : 'current-password';
+  clearAll();
+}
+
+function clearAll() {
   document.getElementById('msg').textContent = '';
-  document.getElementById('password').autocomplete = tab === 'login' ? 'current-password' : 'new-password';
+  document.getElementById('msg').className = 'msg';
+  setFieldMsg('pw-msg', '', '');
+  setFieldMsg('username-msg', '', '');
+  document.getElementById('password').className = '';
 }
 
 function setMsg(text, type) {
   const el = document.getElementById('msg');
-  el.textContent = text;
-  el.className = 'msg ' + type;
+  el.textContent = text; el.className = 'msg ' + type;
+}
+function setFieldMsg(id, text, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text; el.className = 'field-msg' + (type ? ' ' + type : '');
 }
 
+/* ── Username availability check ── */
+async function checkUsernameAvail() {
+  const inp = document.getElementById('username');
+  const raw = inp.value.trim().toLowerCase().replace(/[^a-z0-9_\.]/g, '');
+  inp.value = raw; usernameAvailable = false;
+
+  if (raw.length < 3) {
+    setFieldMsg('username-msg', raw.length ? 'Min 3 characters' : '', raw.length ? 'err' : '');
+    inp.className = 'input-prefixed';
+    return;
+  }
+  setFieldMsg('username-msg', 'Checking…', 'dim');
+  clearTimeout(usernameTimer);
+  usernameTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(raw)}&select=username`, { headers: H });
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length) {
+        setFieldMsg('username-msg', `✕ @${raw} is taken`, 'err');
+        inp.className = 'input-prefixed input-err';
+        usernameAvailable = false;
+      } else {
+        setFieldMsg('username-msg', `✓ @${raw} is available`, 'ok');
+        inp.className = 'input-prefixed input-ok';
+        usernameAvailable = true;
+      }
+    } catch(e) { usernameAvailable = true; }
+  }, 500);
+}
+
+/* ── Forgot password ── */
+async function doForgotPassword() {
+  const email = document.getElementById('email').value.trim();
+  if (!email) { setFieldMsg('pw-msg', 'Enter your email above first', 'err'); return; }
+  try {
+    await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+      method: 'POST', headers: H, body: JSON.stringify({ email })
+    });
+    setMsg('✓ Reset link sent — check your inbox (and spam folder).', 'success');
+  } catch(e) { setMsg('Could not send reset email — try again.', 'error'); }
+}
+
+/* ── Submit ── */
 async function handleSubmit() {
-  const email    = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value;
-  const name     = document.getElementById('name').value.trim();
-  const btn      = document.getElementById('submit-btn');
+  const email = document.getElementById('email').value.trim();
+  const pw    = document.getElementById('password').value;
+  const name  = document.getElementById('name').value.trim();
+  const uname = (document.getElementById('username').value || '').trim().toLowerCase();
+  const btn   = document.getElementById('submit-btn');
 
-  if (!email || !password) return setMsg('Please fill in all fields.', 'error');
-  if (currentTab === 'signup' && password.length < 6) return setMsg('Password must be at least 6 characters.', 'error');
+  clearAll();
+  if (!email || !pw) { setMsg('Please fill in all fields.', 'error'); return; }
 
-  btn.disabled = true;
-  btn.textContent = 'PLEASE WAIT...';
-  btn.classList.add('loading');
-  setMsg('', '');
+  if (currentTab === 'signup') {
+    if (pw.length < 8) { setMsg('Password must be at least 8 characters.', 'error'); return; }
+    if (!usernameAvailable) { setMsg('Choose an available username first.', 'error'); return; }
+  }
+
+  btn.disabled = true; btn.textContent = 'PLEASE WAIT…'; btn.classList.add('loading');
 
   try {
     if (currentTab === 'login') {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
-        body: JSON.stringify({ email, password })
+      const res  = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST', headers: H, body: JSON.stringify({ email, password: pw })
       });
       const data = await res.json();
-      if (data.error || data.error_description) throw new Error(data.error_description || data.error);
-      localStorage.setItem('kronos_session', JSON.stringify(data));
-      localStorage.setItem('kronos_user', JSON.stringify({ email, name: data.user?.user_metadata?.name || email.split('@')[0] }));
-      setMsg('Welcome back! Redirecting…', 'success');
-      setTimeout(() => window.location.href = '/app.html', 800);
+
+      if (data.access_token) {
+        // Fetch profile for name/username
+        const profRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?user_id=eq.${data.user.id}&select=username,display_name`, {
+          headers: { ...H, 'Authorization': `Bearer ${data.access_token}` }
+        });
+        const prof = await profRes.json();
+        const p = Array.isArray(prof) && prof[0] ? prof[0] : {};
+        localStorage.setItem('kronos_session', JSON.stringify(data));
+        localStorage.setItem('kronos_user', JSON.stringify({
+          name: p.display_name || data.user?.user_metadata?.name || email.split('@')[0],
+          username: p.username || '',
+          email,
+        }));
+        setMsg('Welcome back! Redirecting…', 'success');
+        setTimeout(() => window.location.href = '/app.html', 700);
+
+      } else {
+        // Parse error and show it on the right field
+        const errMsg = (data.error_description || data.msg || data.message || '').toLowerCase();
+        if (errMsg.includes('invalid') || errMsg.includes('password') || errMsg.includes('credentials')) {
+          document.getElementById('password').className = 'input-err';
+          setFieldMsg('pw-msg', '✕ Incorrect password', 'err');
+        } else if (errMsg.includes('email') || errMsg.includes('user')) {
+          setMsg('No account found with that email.', 'error');
+        } else {
+          setMsg(data.error_description || 'Login failed — check your details.', 'error');
+        }
+        btn.disabled = false; btn.textContent = 'LOGIN'; btn.classList.remove('loading');
+      }
 
     } else {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
-        body: JSON.stringify({ email, password, data: { name: name || email.split('@')[0] } })
+      // SIGN UP
+      const res  = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: 'POST', headers: H,
+        body: JSON.stringify({ email, password: pw, data: { name: name || email.split('@')[0] } })
       });
       const data = await res.json();
-      if (data.error || data.error_description) throw new Error(data.error_description || data.error);
-      localStorage.setItem('kronos_session', JSON.stringify(data));
-      localStorage.setItem('kronos_user', JSON.stringify({ email, name: name || email.split('@')[0] }));
-      setMsg('Account created! Redirecting…', 'success');
-      setTimeout(() => window.location.href = '/app.html', 800);
+
+      if (data.error || data.error_description) {
+        setMsg(data.error_description || 'Signup failed.', 'error');
+        btn.disabled = false; btn.textContent = 'CREATE ACCOUNT'; btn.classList.remove('loading');
+        return;
+      }
+
+      const userId = data.user?.id || data.id;
+      const token  = data.access_token || SUPABASE_ANON;
+
+      // Create profile with username
+      await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+        method: 'POST',
+        headers: { ...H, 'Authorization': `Bearer ${token}`, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ user_id: userId, username: uname, display_name: name || email.split('@')[0], programme: selectedProg })
+      });
+
+      if (data.access_token) {
+        localStorage.setItem('kronos_session', JSON.stringify(data));
+        localStorage.setItem('kronos_user', JSON.stringify({ name: name || email.split('@')[0], username: uname, email, programme: selectedProg }));
+        setMsg('Account created! Redirecting…', 'success');
+        setTimeout(() => window.location.href = '/app.html', 700);
+      } else {
+        // Email confirmation flow
+        setMsg('✓ Account created! Check your email to confirm, then log in.', 'success');
+        btn.textContent = 'CHECK YOUR EMAIL';
+      }
     }
-  } catch(e) {
-    setMsg(e.message || 'Something went wrong.', 'error');
+  } catch(err) {
+    setMsg('Connection error — try again.', 'error');
     btn.disabled = false;
     btn.textContent = currentTab === 'login' ? 'LOGIN' : 'CREATE ACCOUNT';
     btn.classList.remove('loading');
   }
 }
 
-// Enter key support
 document.addEventListener('keydown', e => { if (e.key === 'Enter') handleSubmit(); });
 </script>
 </body>
