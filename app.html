@@ -1684,7 +1684,7 @@ function renderRequestsList() {
   const list = document.getElementById('fs-requests-list');
   if (!list) return;
   if (!pendingRequests.length) {
-    list.innerHTML = '<div class="fs-empty-tab">No pending requests.<br>When someone adds you,<br>they'll appear here.</div>';
+    list.innerHTML = '<div class="fs-empty-tab">No pending requests.<br>When someone adds you,<br>they\'ll appear here.</div>';
     return;
   }
   list.innerHTML = pendingRequests.map(r => `
