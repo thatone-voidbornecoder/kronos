@@ -416,12 +416,15 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
   border-left: 1px solid var(--border);
   display: flex; flex-direction: column;
   transform: translateX(100%); opacity: 0;
-  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.2s;
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.2s, right 0.28s cubic-bezier(0.4,0,0.2,1);
   z-index: 899; backdrop-filter: blur(14px);
   pointer-events: none;
 }
 #account-panel.open {
   transform: translateX(0); opacity: 1; pointer-events: auto;
+}
+#account-panel.sidebar-expanded {
+  right: 230px;
 }
 .acct-header {
   padding: 1rem 1.2rem 0.8rem;
@@ -1490,6 +1493,7 @@ function toggleSidebar() {
   sidebarExpanded = !sidebarExpanded;
   document.getElementById('friends-sidebar').classList.toggle('expanded', sidebarExpanded);
   document.getElementById('fs-toggle-btn').textContent = sidebarExpanded ? '▶' : '◀';
+  document.getElementById('account-panel').classList.toggle('sidebar-expanded', sidebarExpanded);
   if (!sidebarExpanded && accountPanelOpen) toggleAccountPanel();
 }
 
@@ -1497,6 +1501,8 @@ function showSidebar() {
   const sb = document.getElementById('friends-sidebar');
   sb.style.display = 'flex';
   loadFriends();
+  // Poll for new friend requests every 30s
+  setInterval(loadFriends, 30000);
 }
 
 /* ── Avatar colour (deterministic from username) ── */
@@ -1509,27 +1515,40 @@ function avatarBg(name) {
 
 /* ── Friends list ── */
 let friends = []; // populated from Supabase
+let pendingRequests = []; // incoming friend requests
 
 async function loadFriends() {
   const userId = session?.user?.id;
   if (!userId) return;
   try {
-    // Fetch accepted friendships where current user is either side
-    const rows = await sbGet('friendships', `status=eq.accepted&or=(user_id.eq.${userId},friend_id.eq.${userId})&select=user_id,friend_id,profiles!friendships_friend_id_fkey(username,display_name),profiles!friendships_user_id_fkey(username,display_name)`);
+    // Accepted friends
+    const rows = await sbGet('friendships',
+      `status=eq.accepted&or=(user_id.eq.${userId},friend_id.eq.${userId})&select=user_id,friend_id,profiles!friendships_friend_id_fkey(username,display_name),profiles!friendships_user_id_fkey(username,display_name)`
+    );
     friends = (Array.isArray(rows) ? rows : []).map(r => {
-      // Pick the OTHER person's profile
       const isInitiator = r.user_id === userId;
       const profile = isInitiator ? r['profiles!friendships_friend_id_fkey'] : r['profiles!friendships_user_id_fkey'];
       return {
         username: profile?.username || '?',
         display: profile?.display_name || profile?.username || '?',
-        status: 'offline', // real presence TBD
+        status: 'offline',
         period: 'Offline',
       };
     });
+
+    // Pending requests sent TO me
+    const pending = await sbGet('friendships',
+      `status=eq.pending&friend_id=eq.${userId}&select=id,user_id,profiles!friendships_user_id_fkey(username,display_name)`
+    );
+    pendingRequests = (Array.isArray(pending) ? pending : []).map(r => ({
+      id: r.id,
+      user_id: r.user_id,
+      username: r['profiles!friendships_user_id_fkey']?.username || '?',
+      display: r['profiles!friendships_user_id_fkey']?.display_name || r['profiles!friendships_user_id_fkey']?.username || '?',
+    }));
   } catch(e) {
     console.warn('Friends load failed', e);
-    friends = [];
+    friends = []; pendingRequests = [];
   }
   renderFriendsSidebar();
 }
@@ -1537,24 +1556,52 @@ async function loadFriends() {
 function renderFriendsSidebar() {
   const list = document.getElementById('fs-friends-list');
   if (!list) return;
-  if (!friends.length) {
-    list.innerHTML = '<div style="padding:0.4rem 0 0 10px;font-size:0.58rem;color:var(--dim-text);white-space:nowrap;opacity:0;transition:opacity 0.18s" class="fs-no-friends">Add friends above ↑</div>';
-    // Show the label once sidebar expands
+  let html = '';
+
+  // Pending requests — shown at top with accept/decline
+  if (pendingRequests.length) {
+    html += pendingRequests.map(r => `
+      <div class="fs-friend fs-pending" title="Friend request from @${r.username}">
+        <div class="fs-avatar" style="background:${avatarBg(r.username)};border:1.5px solid var(--gold)">
+          ${r.display.slice(0,1).toUpperCase()}
+          <span class="fs-status-dot offline"></span>
+        </div>
+        <div class="fs-info">
+          <div class="fs-name" style="color:var(--gold)">${r.display.toUpperCase()}</div>
+          <div style="display:flex;gap:0.3rem;margin-top:0.25rem">
+            <button onclick="respondFriendRequest('${r.id}','${r.user_id}',true)"
+              style="font-family:'Orbitron',sans-serif;font-size:0.45rem;padding:0.2rem 0.4rem;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;letter-spacing:0.08em">✓ ACCEPT</button>
+            <button onclick="respondFriendRequest('${r.id}','${r.user_id}',false)"
+              style="font-family:'Orbitron',sans-serif;font-size:0.45rem;padding:0.2rem 0.4rem;border:1px solid var(--dim);background:transparent;color:var(--dim-text);cursor:pointer;letter-spacing:0.08em">✕</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Accepted friends
+  if (friends.length) {
+    html += friends.map(f => `
+      <div class="fs-friend" title="@${f.username}">
+        <div class="fs-avatar" style="background:${avatarBg(f.username)}">
+          ${f.display.slice(0,1).toUpperCase()}
+          <span class="fs-status-dot ${f.status}"></span>
+        </div>
+        <div class="fs-info">
+          <div class="fs-name">${f.display.toUpperCase()}</div>
+          <div class="fs-period ${f.status}">@${f.username}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  if (!html) {
+    html = '<div style="padding:0.4rem 0 0 10px;font-size:0.58rem;color:var(--dim-text);white-space:nowrap;opacity:0;transition:opacity 0.18s" class="fs-no-friends">Add friends above ↑</div>';
+    list.innerHTML = html;
     setTimeout(() => { const el = list.querySelector('.fs-no-friends'); if(el) el.style.opacity='1'; }, 50);
     return;
   }
-  list.innerHTML = friends.map(f => `
-    <div class="fs-friend" title="${f.username} · ${f.period}">
-      <div class="fs-avatar" style="background:${avatarBg(f.username)}">
-        ${f.display.slice(0,1).toUpperCase()}
-        <span class="fs-status-dot ${f.status}"></span>
-      </div>
-      <div class="fs-info">
-        <div class="fs-name">${f.display.toUpperCase()}</div>
-        <div class="fs-period ${f.status}">@${f.username}</div>
-      </div>
-    </div>
-  `).join('');
+  list.innerHTML = html;
 }
 
 /* ── Add friend ── */
@@ -1585,9 +1632,24 @@ async function sendFriendRequest() {
       showFsMsg(st === 'accepted' ? 'Already friends!' : 'Request already sent', 'err'); return;
     }
 
-    await sbPost('friendships', { user_id: myId, friend_id: target.user_id, status: 'accepted' });
+    await sbPost('friendships', { user_id: myId, friend_id: target.user_id, status: 'pending' });
     input.value = '';
-    showFsMsg(`Added @${username}!`, 'ok');
+    showFsMsg(`Request sent to @${username}!`, 'ok');
+    loadFriends();
+  } catch(e) {
+    showFsMsg('Something went wrong', 'err');
+  }
+}
+
+async function respondFriendRequest(id, fromUserId, accept) {
+  try {
+    if (accept) {
+      await sbPatch('friendships', `id=eq.${id}`, { status: 'accepted' });
+      showFsMsg('Friend added!', 'ok');
+    } else {
+      await sbDelete('friendships', `id=eq.${id}`);
+      showFsMsg('Request declined', 'err');
+    }
     loadFriends();
   } catch(e) {
     showFsMsg('Something went wrong', 'err');
@@ -1658,15 +1720,21 @@ async function saveUsername() {
     msg.textContent = '@' + raw + ' is already taken'; msg.className = 'acct-msg err'; return;
   }
 
-  // Upsert profile
-  const res = await sbUpsert('profiles', { user_id: session.user.id, username: raw }, 'user_id');
-  if (Array.isArray(res) && res[0]?.username) {
+  // Upsert profile — also insert programme so old accounts get a full row
+  const prog = userProfile?.programme || 'DP';
+  const res = await sbUpsert('profiles',
+    { user_id: session.user.id, username: raw, display_name: userProfile?.name || '', programme: prog },
+    'user_id'
+  );
+  // Supabase returns [] or [{...}] — both mean success if no error thrown
+  if (res && !res.error && !res.message) {
     userProfile.username = raw;
     localStorage.setItem('kronos_user', JSON.stringify(userProfile));
     document.getElementById('fs-username-sub').textContent = '@' + raw;
     msg.textContent = '✓ Username saved'; msg.className = 'acct-msg ok';
   } else {
-    msg.textContent = 'Save failed — try again'; msg.className = 'acct-msg err';
+    const errMsg = res?.message || res?.error || 'Save failed — try again';
+    msg.textContent = errMsg; msg.className = 'acct-msg err';
   }
 }
 
