@@ -199,6 +199,11 @@ body::after {
 </div>
 
 <script>
+// Allow ?reset in URL to force-clear session (for debugging)
+if (window.location.search.includes('reset')) {
+  localStorage.removeItem('kronos_session');
+  localStorage.removeItem('kronos_user');
+}
 const SUPABASE_URL  = 'https://taoxspuawounvngmvtvv.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhb3hzcHVhd291bnZuZ212dHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0ODg1NjcsImV4cCI6MjA4NzA2NDU2N30.U89oeo8NqhFkCYzg59NB2fG9RmiM8ApMFw0HCv6PCxU';
 const H = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON };
@@ -222,8 +227,18 @@ let usernameTimer;
 /* ── Auto-redirect if already logged in ── */
 try {
   const s = JSON.parse(localStorage.getItem('kronos_session') || '{}');
-  if (s.access_token && s.expires_at > Date.now() / 1000) window.location.href = '/app.html';
-} catch(e) {}
+  // Only redirect if session exists AND isn't expired AND has a user id
+  if (s.access_token && s.user?.id && s.expires_at > Date.now() / 1000) {
+    window.location.href = '/app.html';
+  } else if (s.access_token) {
+    // Session exists but looks bad — clear it so user sees login form
+    localStorage.removeItem('kronos_session');
+    localStorage.removeItem('kronos_user');
+  }
+} catch(e) {
+  localStorage.removeItem('kronos_session');
+  localStorage.removeItem('kronos_user');
+}
 
 /* ── Tab switching ── */
 function setTab(tab) {
