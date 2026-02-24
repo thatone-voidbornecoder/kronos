@@ -337,7 +337,7 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
   width: 10px; height: 10px; border-radius: 50%;
   border: 2px solid rgba(8,8,18,0.97);
 }
-.fs-status-dot.class   { background: #888899; box-shadow: none; }
+.fs-status-dot.class   { background: #f5a623; box-shadow: 0 0 5px rgba(245,166,35,0.8); }
 .fs-status-dot.break   { background: #b8ff3c; box-shadow: 0 0 5px rgba(184,255,60,0.9); }
 .fs-status-dot.study   { background: #00d4ff; box-shadow: 0 0 5px rgba(0,212,255,0.9); }
 .fs-status-dot.free    { background: #00ff88; box-shadow: 0 0 5px rgba(0,255,136,0.7); }
@@ -351,7 +351,7 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
   letter-spacing: 0.05em; color: #ddd; line-height: 1.2;
 }
 .fs-period { font-size: 0.58rem; color: var(--dim-text); margin-top: 0.08rem; }
-.fs-period.class  { color: #888899; }
+.fs-period.class  { color: #f5a623; }
 .fs-period.break  { color: #b8ff3c; }
 .fs-period.study  { color: #00d4ff; }
 .fs-period.free   { color: #00ff88; }
@@ -1599,8 +1599,14 @@ function showSidebar() {
   const sb = document.getElementById('friends-sidebar');
   sb.style.display = 'flex';
   loadFriends();
-  // Poll for friend updates — 30s normally, speeds up after activity
-  setInterval(loadFriends, 30000);
+  // Poll for friend updates every 30s
+  setInterval(loadFriends, 10000);
+  // Auto-refresh session every 4 minutes so it never expires while app is open
+  setInterval(async () => {
+    await refreshIfNeeded();
+    // If session died anyway, reload friends to catch auth errors
+    if (!session?.access_token) { window.location.href = '/login.html'; }
+  }, 4 * 60 * 1000);
 }
 
 /* ── Avatar colour (deterministic from username) ── */
@@ -1633,7 +1639,7 @@ function computeFriendStatus(timetable) {
   for (const k of keysToTry) {
     if (timetable[k] && timetable[k].length) { periods = timetable[k]; break; }
   }
-  if (!periods.length) return { type: 'offline', name: 'No timetable' };
+  if (!periods.length) return { type: 'offline', name: '' };
 
   const sorted = periods
     .filter(p => p.name && p.start && p.end)
@@ -1662,6 +1668,7 @@ function computeFriendStatus(timetable) {
 }
 
 async function loadFriends() {
+  await refreshIfNeeded();
   const userId = session?.user?.id;
   if (!userId) return;
   try {
@@ -1682,11 +1689,15 @@ async function loadFriends() {
       );
       // Fetch their timetables to compute live status
       const friendProfs = (Array.isArray(profs) ? profs : []);
-      const timetableRows = await sbGet('timetables',
-        `user_id=in.(${friendIds.join(',')})&select=user_id,day,periods`
-      );
+      let timetableRows = [];
+      try {
+        const res = await sbGet('timetables',
+          `user_id=in.(${friendIds.join(',')})&select=user_id,day,periods`
+        );
+        timetableRows = Array.isArray(res) ? res : [];
+      } catch(e) {}
       const friendTimetables = {};
-      (Array.isArray(timetableRows) ? timetableRows : []).forEach(r => {
+      timetableRows.forEach(r => {
         if (!friendTimetables[r.user_id]) friendTimetables[r.user_id] = {};
         try {
           friendTimetables[r.user_id][r.day] = typeof r.periods === 'string' ? JSON.parse(r.periods) : r.periods;
@@ -1764,7 +1775,7 @@ function renderFriendsList() {
       </div>
       <div class="fs-info">
         <div class="fs-name">${f.display.toUpperCase()}</div>
-        <div class="fs-period ${f.status}">${f.period && f.period !== 'Offline' ? f.period : '@' + f.username}</div>
+        <div class="fs-period ${f.status}">${f.period ? f.period : '@' + f.username}</div>
       </div>
     </div>
   `).join('');
