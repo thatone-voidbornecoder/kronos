@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#080810">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kronos">
 <link rel="icon" type="image/png" href="https://i.imgur.com/j7zxM6Z.png">
+<link rel="apple-touch-icon" href="https://i.imgur.com/j7zxM6Z.png">
+<link rel="manifest" href="/manifest.json">
 <title>Kronos</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
@@ -476,6 +482,130 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
   color: var(--dim-text); line-height: 1.6;
 }
 
+
+/* ── Period notes ── */
+.period-note-btn {
+  position: absolute; top: 0.4rem; right: 0.5rem;
+  background: transparent; border: none;
+  color: var(--dim-text); font-size: 0.75rem;
+  cursor: pointer; transition: color 0.2s; padding: 0.2rem;
+  opacity: 0; transition: opacity 0.2s, color 0.2s;
+}
+.period-row:hover .period-note-btn,
+.period-note-btn.has-note { opacity: 1; }
+.period-note-btn.has-note { color: var(--gold); }
+
+#note-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2000; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+#note-modal.open { opacity: 1; pointer-events: auto; }
+.note-card {
+  background: var(--panel); border: 1px solid var(--border);
+  width: 100%; max-width: 380px; padding: 1.4rem 1.6rem;
+  display: flex; flex-direction: column; gap: 0.8rem;
+  box-shadow: 0 0 60px rgba(0,0,0,0.8);
+}
+.note-card h3 {
+  font-family: 'Orbitron', sans-serif; font-size: 0.72rem;
+  letter-spacing: 0.12em; color: var(--gold);
+}
+.note-textarea {
+  background: var(--bg); border: 1px solid var(--dim);
+  color: #ccc; font-family: 'Share Tech Mono', monospace;
+  font-size: 0.82rem; padding: 0.6rem 0.8rem;
+  resize: vertical; min-height: 100px; outline: none;
+  transition: border-color 0.2s; width: 100%;
+}
+.note-textarea:focus { border-color: var(--gold); color: #fff; }
+.note-actions { display: flex; gap: 0.6rem; justify-content: flex-end; }
+.note-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.6rem;
+  letter-spacing: 0.1em; padding: 0.4rem 0.9rem;
+  border: 1px solid; background: transparent; cursor: pointer;
+  transition: all 0.2s;
+}
+.note-btn.save  { border-color: var(--gold); color: var(--gold); }
+.note-btn.save:hover  { background: var(--gold); color: #000; box-shadow: none; }
+.note-btn.close { border-color: var(--dim); color: var(--dim-text); }
+.note-btn.close:hover { border-color: var(--red); color: var(--red); box-shadow: none; }
+
+/* ── Notification bell ── */
+.notif-bell {
+  background: transparent; border: 1px solid var(--dim);
+  color: var(--dim-text); font-size: 0.75rem;
+  padding: 0.22rem 0.5rem; cursor: pointer; transition: all 0.2s;
+  position: relative;
+}
+.notif-bell:hover { border-color: var(--gold); color: var(--gold); box-shadow: none; }
+.notif-bell.active { border-color: var(--gold); color: var(--gold); }
+.notif-bell .bell-dot {
+  position: absolute; top: -3px; right: -3px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--red); display: none;
+  border: 1.5px solid var(--bg);
+}
+.notif-bell.has-alert .bell-dot { display: block; }
+
+/* ── Streak leaderboard drawer ── */
+#leaderboard-drawer {
+  position: fixed; top: 0; right: -380px; width: 360px; height: 100vh;
+  background: var(--panel); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; z-index: 999;
+  transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: -4px 0 30px rgba(0,0,0,0.5);
+}
+#leaderboard-drawer.open { right: 52px; }
+.lb-header {
+  padding: 1rem 1.3rem; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.lb-header h2 {
+  font-family: 'Orbitron', sans-serif; font-size: 0.78rem;
+  letter-spacing: 0.14em; color: var(--gold);
+}
+.lb-body { flex: 1; overflow-y: auto; padding: 0.8rem 1.2rem; }
+.lb-row {
+  display: flex; align-items: center; gap: 0.8rem;
+  padding: 0.6rem 0.5rem; border-bottom: 1px solid rgba(26,26,48,0.5);
+  transition: background 0.15s;
+}
+.lb-row:hover { background: rgba(255,255,255,0.03); }
+.lb-rank {
+  font-family: 'Orbitron', sans-serif; font-size: 0.65rem;
+  color: var(--dim-text); width: 1.4rem; text-align: center; flex-shrink: 0;
+}
+.lb-rank.gold-rank   { color: #ffd700; }
+.lb-rank.silver-rank { color: #c0c0c0; }
+.lb-rank.bronze-rank { color: #cd7f32; }
+.lb-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-size: 0.68rem; color: #fff;
+}
+.lb-info { flex: 1; min-width: 0; }
+.lb-name { font-family: 'Orbitron', sans-serif; font-size: 0.62rem; letter-spacing: 0.05em; color: #ddd; }
+.lb-streak { font-size: 0.58rem; color: var(--dim-text); margin-top: 0.1rem; }
+.lb-streak-count {
+  font-family: 'Orbitron', sans-serif; font-size: 0.9rem;
+  color: var(--gold); text-align: right; flex-shrink: 0;
+}
+.lb-you { background: rgba(245,166,35,0.06); border-left: 2px solid var(--gold); }
+.lb-empty { padding: 1.5rem; font-size: 0.68rem; color: var(--dim-text); text-align: center; line-height: 1.7; }
+
+/* ── Todo overdue banner ── */
+.overdue-banner {
+  background: rgba(255,68,68,0.1); border: 1px solid rgba(255,68,68,0.3);
+  color: var(--red); font-size: 0.65rem; letter-spacing: 0.08em;
+  padding: 0.4rem 0.8rem; display: none; align-items: center;
+  gap: 0.5rem; cursor: pointer; transition: background 0.2s;
+}
+.overdue-banner.show { display: flex; }
+.overdue-banner:hover { background: rgba(255,68,68,0.18); }
+
 #account-panel {
   position: fixed; right: 52px; top: 0; bottom: 0;
   width: 280px; background: rgba(10,10,22,0.98);
@@ -657,6 +787,9 @@ body { padding-right: 52px; }
     </div>
     <div class="top-bar-right">
       <span class="user-chip" id="display-user-chip"></span>
+      <button class="notif-bell" id="notif-bell" onclick="toggleNotifications()" title="Notifications">
+        🔔<span class="bell-dot"></span>
+      </button>
       <button class="edit-btn" onclick="goBack()">← EDIT</button>
     </div>
   </div>
@@ -739,6 +872,14 @@ body { padding-right: 52px; }
 
   <div class="fs-divider"></div>
   <div class="fs-spacer"></div>
+
+  <!-- Streak Leaderboard -->
+  <button class="fs-tool-btn" onclick="openLeaderboard()">
+    <span class="fs-tool-icon" style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.25);color:var(--gold)">🏆</span>
+    <span class="fs-tool-label">
+      <div class="fs-tool-label-main">LEADERBOARD</div>
+    </span>
+  </button>
 
   <!-- Grade Tracker -->
   <button class="fs-tool-btn" onclick="openDrawer('grade')">
@@ -839,11 +980,35 @@ body { padding-right: 52px; }
   </div>
 </div>
 
-<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeAllDrawers()"></div>
+
+<!-- ═══ NOTE MODAL ═══ -->
+<div id="note-modal">
+  <div class="note-card">
+    <h3 id="note-modal-title">📝 PERIOD NOTES</h3>
+    <textarea class="note-textarea" id="note-textarea" placeholder="Homework, reminders, anything…"></textarea>
+    <div class="note-actions">
+      <button class="note-btn close" onclick="closeNoteModal()">CANCEL</button>
+      <button class="note-btn save" onclick="saveNote()">SAVE NOTE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LEADERBOARD DRAWER ═══ -->
+<div id="leaderboard-drawer">
+  <div class="lb-header">
+    <h2>🏆 STREAK LEADERBOARD</h2>
+    <button class="acct-close" onclick="closeLeaderboard()">✕</button>
+  </div>
+  <div class="lb-body" id="lb-body">
+    <div class="lb-empty">Loading…</div>
+  </div>
+</div>
+
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeAllDrawers();closeLeaderboard()"></div>
 
 <!-- TODO DRAWER -->
 <div class="side-drawer" id="todo-drawer">
-  <div class="drawer-header"><h2>✓ TO-DO LIST</h2><button class="drawer-close" onclick="closeAllDrawers()">✕</button></div>
+  <div class="drawer-header"><h2>✓ TO-DO LIST</h2><button class="drawer-close" onclick="closeAllDrawers();closeLeaderboard()">✕</button></div>
   <div class="todo-input-row">
     <div style="flex:1;display:flex;flex-direction:column;gap:0.4rem">
       <input class="todo-input" id="todo-input" type="text" placeholder="Add a task..." maxlength="120" onkeydown="if(event.key==='Enter')addTodo()">
@@ -863,7 +1028,7 @@ body { padding-right: 52px; }
 
 <!-- GRADE DRAWER -->
 <div class="side-drawer" id="grade-drawer">
-  <div class="drawer-header"><h2>📊 GRADE TRACKER</h2><button class="drawer-close" onclick="closeAllDrawers()">✕</button></div>
+  <div class="drawer-header"><h2>📊 GRADE TRACKER</h2><button class="drawer-close" onclick="closeAllDrawers();closeLeaderboard()">✕</button></div>
   <div class="grade-drawer-body" id="grade-body"></div>
   <div class="grade-footer">
     <div class="add-subject-row">
@@ -1024,6 +1189,8 @@ async function init() {
   updateStreak();
   renderStreak();
   pickQuote('class');
+  updateBellUI();
+  checkOverdueTodos();
   } catch(fatalErr) {
     console.error('Init failed:', fatalErr);
     document.getElementById('loading-screen').style.display = 'none';
@@ -1279,6 +1446,11 @@ function showDayOverlay(type,periods) {
 function nowMinutes(){const d=new Date();return d.getHours()*60+d.getMinutes()+d.getSeconds()/60;}
 function timeToMinutes(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
 function fmtTime(t){const[h,m]=t.split(':').map(Number);return`${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`;}
+function toMin(timeStr) {
+  if (!timeStr) return 0;
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+}
 function fmtCountdown(sec){
   const s=Math.round(Math.abs(sec));
   const h=Math.floor(s/3600);
@@ -1349,6 +1521,7 @@ function tick(){
       pd.innerHTML=`${Math.floor(pct)}<span class="percent-symbol">%</span>`; pd.className='percent-display'+(nearEnd?' near-end':'');
       pf.style.width=pct+'%'; pf.className='progress-bar-fill'+(nearEnd?' near-end':'');
       trEl.textContent=fmtCountdown(remaining); trEl.className='time-remaining';
+      scheduleNotifForPeriod(cur, toMin(cur.end));
       emEl.textContent=''; nameEl.textContent=current.name; nameEl.className='current-class-name'; nowTag.textContent='NOW';
     }
     document.getElementById('current-time').textContent=`${fmtTime(current.start)} – ${fmtTime(current.end)}`;
@@ -1661,10 +1834,10 @@ function computeFriendStatus(timetable) {
     const [fh, fm] = firstStart.split(':').map(Number);
     const [lh, lm] = lastEnd.split(':').map(Number);
     if (nowM < fh * 60 + fm || nowM >= lh * 60 + lm) {
-      return { type: 'offline', name: 'Not in school' };
+      return { type: 'offline', name: '' };
     }
   }
-  return { type: 'free', name: 'Free period' };
+  return { type: 'offline', name: '' };
 }
 
 async function loadFriends() {
@@ -1990,6 +2163,234 @@ async function savePassword() {
     document.getElementById('acct-pw-confirm').value = '';
   } else {
     msg.textContent = data.msg || 'Update failed'; msg.className = 'acct-msg err';
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   PWA — Service Worker Registration
+══════════════════════════════════════════════════ */
+let swRegistration = null;
+
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    swRegistration = await navigator.serviceWorker.register('/sw.js');
+    console.log('SW registered');
+  } catch(e) { console.warn('SW registration failed', e); }
+}
+registerSW();
+
+/* ══════════════════════════════════════════════════
+   NOTIFICATIONS
+══════════════════════════════════════════════════ */
+let notificationsEnabled = localStorage.getItem('kronos_notifs') === 'true';
+let scheduledNotifTag = null;
+
+async function toggleNotifications() {
+  if (!('Notification' in window)) {
+    alert('Your browser doesn\'t support notifications.'); return;
+  }
+  if (!notificationsEnabled) {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      notificationsEnabled = true;
+      localStorage.setItem('kronos_notifs', 'true');
+      updateBellUI();
+      showFsMsg('Notifications on! You\'ll get a 5-min warning before each period ends.', 'ok');
+    } else {
+      showFsMsg('Notifications blocked — enable in browser settings.', 'err');
+    }
+  } else {
+    notificationsEnabled = false;
+    localStorage.setItem('kronos_notifs', 'false');
+    cancelScheduledNotif();
+    updateBellUI();
+    showFsMsg('Notifications off', 'err');
+  }
+}
+
+function updateBellUI() {
+  const bell = document.getElementById('notif-bell');
+  if (!bell) return;
+  bell.classList.toggle('active', notificationsEnabled);
+}
+
+function scheduleNotifForPeriod(period, endMinutes) {
+  if (!notificationsEnabled || !swRegistration) return;
+  const nowM = new Date().getHours() * 60 + new Date().getMinutes();
+  const nowS = new Date().getSeconds();
+  const remaining = (endMinutes - nowM) * 60 - nowS;
+  const warnAt = remaining - 5 * 60; // 5 min before end
+  if (warnAt <= 0) return; // less than 5 min left, skip
+
+  const tag = `period-end-${period.name}`;
+  if (scheduledNotifTag === tag) return; // already scheduled
+  scheduledNotifTag = tag;
+
+  swRegistration.active?.postMessage({
+    type: 'SCHEDULE_NOTIFICATION',
+    delayMs: warnAt * 1000,
+    title: 'Kronos — 5 minutes left',
+    body: `${period.name} ends in 5 minutes`,
+    tag,
+  });
+}
+
+function cancelScheduledNotif() {
+  swRegistration?.active?.postMessage({ type: 'CANCEL_NOTIFICATIONS' });
+  scheduledNotifTag = null;
+}
+
+/* ══════════════════════════════════════════════════
+   PERIOD NOTES
+══════════════════════════════════════════════════ */
+let periodNotes = JSON.parse(localStorage.getItem('kronos_notes') || '{}');
+let activeNoteKey = null;
+
+function noteKey(day, periodName) { return `${day}__${periodName}`; }
+
+function openNoteModal(day, periodName) {
+  activeNoteKey = noteKey(day, periodName);
+  document.getElementById('note-modal-title').textContent = `📝 ${periodName}`;
+  document.getElementById('note-textarea').value = periodNotes[activeNoteKey] || '';
+  document.getElementById('note-modal').classList.add('open');
+  setTimeout(() => document.getElementById('note-textarea').focus(), 100);
+}
+
+function closeNoteModal() {
+  document.getElementById('note-modal').classList.remove('open');
+  activeNoteKey = null;
+}
+
+function saveNote() {
+  if (!activeNoteKey) return;
+  const val = document.getElementById('note-textarea').value.trim();
+  if (val) { periodNotes[activeNoteKey] = val; }
+  else      { delete periodNotes[activeNoteKey]; }
+  localStorage.setItem('kronos_notes', JSON.stringify(periodNotes));
+  closeNoteModal();
+  renderNoteButtons();
+}
+
+function renderNoteButtons() {
+  // Add/update note buttons on all visible period rows
+  document.querySelectorAll('.period-row[data-day][data-period]').forEach(row => {
+    const key = noteKey(row.dataset.day, row.dataset.period);
+    let btn = row.querySelector('.period-note-btn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.className = 'period-note-btn';
+      btn.title = 'Period notes';
+      btn.onclick = () => openNoteModal(row.dataset.day, row.dataset.period);
+      row.appendChild(btn);
+    }
+    const hasNote = !!periodNotes[key];
+    btn.classList.toggle('has-note', hasNote);
+    btn.textContent = hasNote ? '📝' : '✎';
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   STREAK LEADERBOARD
+══════════════════════════════════════════════════ */
+async function openLeaderboard() {
+  document.getElementById('leaderboard-drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').style.opacity = '1';
+  document.getElementById('drawer-backdrop').style.pointerEvents = 'auto';
+  await renderLeaderboard();
+}
+
+function closeLeaderboard() {
+  document.getElementById('leaderboard-drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').style.opacity = '0';
+  document.getElementById('drawer-backdrop').style.pointerEvents = 'none';
+}
+
+async function renderLeaderboard() {
+  const body = document.getElementById('lb-body');
+  body.innerHTML = '<div class="lb-empty">Loading…</div>';
+
+  const myId = session?.user?.id;
+  const myStreak = getStreak().count;
+  const myName = userProfile?.name || 'You';
+  const myUsername = userProfile?.username || '';
+
+  // Fetch accepted friends
+  try {
+    const rows = await sbGet('friendships',
+      `status=eq.accepted&or=(user_id.eq.${myId},friend_id.eq.${myId})&select=user_id,friend_id`
+    );
+    const friendIds = (Array.isArray(rows) ? rows : []).map(r =>
+      r.user_id === myId ? r.friend_id : r.user_id
+    ).filter(Boolean);
+
+    // Fetch their profiles + streaks
+    let entries = [{ name: myName, username: myUsername, streak: myStreak, isMe: true, id: myId }];
+
+    if (friendIds.length) {
+      const profs = await sbGet('profiles',
+        `user_id=in.(${friendIds.join(',')})&select=user_id,display_name,username,streak`
+      );
+      (Array.isArray(profs) ? profs : []).forEach(p => {
+        entries.push({
+          name: p.display_name || p.username || '?',
+          username: p.username || '',
+          streak: p.streak || 0,
+          isMe: false,
+          id: p.user_id,
+        });
+      });
+    }
+
+    // Sort by streak desc
+    entries.sort((a, b) => b.streak - a.streak);
+
+    if (entries.length === 1 && !friendIds.length) {
+      body.innerHTML = '<div class="lb-empty">Add friends to see how your streak compares! 🔥</div>';
+      return;
+    }
+
+    const rankClasses = ['gold-rank', 'silver-rank', 'bronze-rank'];
+    body.innerHTML = entries.map((e, i) => `
+      <div class="lb-row ${e.isMe ? 'lb-you' : ''}">
+        <div class="lb-rank ${rankClasses[i] || ''}">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</div>
+        <div class="lb-avatar" style="background:${avatarBg(e.username || e.name)}">
+          ${(e.name || '?').slice(0,1).toUpperCase()}
+        </div>
+        <div class="lb-info">
+          <div class="lb-name">${(e.name).toUpperCase()}${e.isMe ? ' (you)' : ''}</div>
+          <div class="lb-streak">@${e.username || '—'}</div>
+        </div>
+        <div class="lb-streak-count">${e.streak}<span style="font-size:0.5rem;color:var(--dim-text);margin-left:0.2rem">days</span></div>
+      </div>
+    `).join('');
+  } catch(err) {
+    body.innerHTML = '<div class="lb-empty">Couldn\'t load leaderboard. Try again.</div>';
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   OVERDUE TODO ALERTS
+══════════════════════════════════════════════════ */
+function checkOverdueTodos() {
+  const today = new Date().toISOString().split('T')[0];
+  const overdue = todos.filter(t => !t.done && t.due && t.due < today);
+  const banner = document.getElementById('overdue-banner');
+  const countEl = document.getElementById('overdue-count-text');
+  if (!banner) return;
+  if (overdue.length) {
+    countEl.textContent = `${overdue.length} overdue task${overdue.length > 1 ? 's' : ''}`;
+    banner.classList.add('show');
+    // Browser notification if enabled
+    if (notificationsEnabled && Notification.permission === 'granted') {
+      new Notification('Kronos — Overdue tasks', {
+        body: `You have ${overdue.length} overdue task${overdue.length > 1 ? 's' : ''}`,
+        icon: 'https://i.imgur.com/j7zxM6Z.png',
+        tag: 'overdue-todos',
+      });
+    }
+  } else {
+    banner.classList.remove('show');
   }
 }
 
