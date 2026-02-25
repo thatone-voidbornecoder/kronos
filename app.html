@@ -606,6 +606,93 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
 .overdue-banner.show { display: flex; }
 .overdue-banner:hover { background: rgba(255,68,68,0.18); }
 
+
+/* ── Timetable import modal ── */
+#import-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+#import-modal.open { opacity: 1; pointer-events: auto; }
+.import-card {
+  background: var(--panel); border: 1px solid var(--border);
+  width: 100%; max-width: 560px; max-height: 85vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 0 80px rgba(0,0,0,0.9);
+}
+.import-header {
+  padding: 1rem 1.4rem; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.import-header h3 {
+  font-family: 'Orbitron', sans-serif; font-size: 0.72rem;
+  letter-spacing: 0.14em; color: var(--gold);
+}
+.import-body { flex: 1; overflow-y: auto; padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 1rem; }
+.import-drop-zone {
+  border: 2px dashed var(--dim); padding: 2.5rem 1rem;
+  text-align: center; cursor: pointer; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+}
+.import-drop-zone:hover, .import-drop-zone.dragover {
+  border-color: var(--gold); background: rgba(245,166,35,0.05);
+}
+.import-drop-icon { font-size: 2.2rem; opacity: 0.7; }
+.import-drop-text { font-size: 0.65rem; letter-spacing: 0.1em; color: var(--dim-text); }
+.import-drop-hint { font-size: 0.58rem; color: #555; }
+#import-file-input { display: none; }
+
+.import-status {
+  font-size: 0.65rem; letter-spacing: 0.08em; text-align: center;
+  padding: 0.5rem; min-height: 1.5rem;
+}
+.import-status.loading { color: var(--gold); }
+.import-status.ok      { color: var(--green); }
+.import-status.err     { color: var(--red); }
+
+/* Preview table */
+.import-preview { display: none; flex-direction: column; gap: 0.5rem; }
+.import-preview.show { display: flex; }
+.import-preview-title {
+  font-family: 'Orbitron', sans-serif; font-size: 0.6rem;
+  letter-spacing: 0.12em; color: var(--gold);
+}
+.import-day-block { margin-bottom: 0.6rem; }
+.import-day-label {
+  font-family: 'Orbitron', sans-serif; font-size: 0.58rem;
+  letter-spacing: 0.1em; color: #888; margin-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border); padding-bottom: 0.2rem;
+}
+.import-period-row {
+  display: flex; gap: 0.5rem; align-items: center;
+  padding: 0.25rem 0.3rem; font-size: 0.65rem; color: #ccc;
+}
+.import-period-row .ip-num  { color: var(--dim-text); width: 1.2rem; flex-shrink: 0; }
+.import-period-row .ip-name { flex: 1; }
+.import-period-row .ip-type { font-size: 0.55rem; padding: 0.1rem 0.35rem; border: 1px solid var(--dim); color: var(--dim-text); }
+.import-period-row .ip-type.break { border-color: var(--break-col); color: var(--break-col); }
+.import-period-row .ip-type.study { border-color: var(--study-col); color: var(--study-col); }
+.import-period-row .ip-room { font-size: 0.58rem; color: #555; margin-left: auto; }
+.import-week-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.import-week-tab {
+  font-family: 'Orbitron', sans-serif; font-size: 0.55rem; letter-spacing: 0.1em;
+  padding: 0.3rem 0.8rem; border: 1px solid var(--dim); background: transparent;
+  color: var(--dim-text); cursor: pointer; transition: all 0.15s;
+}
+.import-week-tab.active { border-color: var(--gold); color: var(--gold); background: rgba(245,166,35,0.1); }
+.import-footer {
+  padding: 0.8rem 1.4rem; border-top: 1px solid var(--border);
+  display: flex; gap: 0.6rem; justify-content: flex-end; flex-shrink: 0;
+}
+.import-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.6rem; letter-spacing: 0.1em;
+  padding: 0.45rem 1rem; border: 1px solid; background: transparent; cursor: pointer; transition: all 0.2s;
+}
+.import-btn.confirm { border-color: var(--gold); color: var(--gold); }
+.import-btn.confirm:hover { background: var(--gold); color: #000; box-shadow: none; }
+.import-btn.cancel  { border-color: var(--dim); color: var(--dim-text); }
+.import-btn.cancel:hover { border-color: var(--red); color: var(--red); box-shadow: none; }
+
 #account-panel {
   position: fixed; right: 52px; top: 0; bottom: 0;
   width: 280px; background: rgba(10,10,22,0.98);
