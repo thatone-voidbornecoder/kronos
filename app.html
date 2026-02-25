@@ -814,7 +814,14 @@ body { padding-right: 52px; }
       <div>
         <div class="section-tag" id="now-tag">NOW</div>
         <div class="period-emoji" id="period-emoji"></div>
-        <div class="current-class-name" id="current-name">—</div>
+        <div style="display:flex;align-items:center;gap:0.5rem;justify-content:center">
+          <div class="current-class-name" id="current-name">—</div>
+          <button id="live-note-btn" onclick="openLiveNote()" title="Period notes"
+            style="display:none;background:transparent;border:none;font-size:1.1rem;
+                   cursor:pointer;opacity:0.35;transition:opacity 0.2s;padding:0.1rem;line-height:1"
+            onmouseenter="this.style.opacity=1"
+            onmouseleave="this.style.opacity=this.classList.contains('has-note')?1:0.35">✎</button>
+        </div>
         <div class="current-class-time" id="current-time"></div>
       </div>
       <div>
