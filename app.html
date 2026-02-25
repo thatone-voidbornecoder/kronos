@@ -1525,7 +1525,7 @@ function tick(){
       pd.innerHTML=`${Math.floor(pct)}<span class="percent-symbol">%</span>`; pd.className='percent-display'+(nearEnd?' near-end':'');
       pf.style.width=pct+'%'; pf.className='progress-bar-fill'+(nearEnd?' near-end':'');
       trEl.textContent=fmtCountdown(remaining); trEl.className='time-remaining';
-      scheduleNotifForPeriod(cur, toMin(cur.end));
+      scheduleNotifForPeriod(current, toMin(current.end));
       emEl.textContent=''; nameEl.textContent=current.name; nameEl.className='current-class-name'; nowTag.textContent='NOW';
     }
     document.getElementById('current-time').textContent=`${fmtTime(current.start)} – ${fmtTime(current.end)}`;
