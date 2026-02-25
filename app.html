@@ -806,6 +806,7 @@ body { padding-right: 52px; }
 <div id="setup-screen">
   <div class="setup-user-bar">
     <span id="user-greeting">Hey —</span>
+    <button onclick="openImportModal()" style="border-color:var(--gold);color:var(--gold)">📷 IMPORT</button>
     <button onclick="logout()">LOGOUT</button>
   </div>
   <h1>⬡ KRONOS</h1>
@@ -852,6 +853,44 @@ body { padding-right: 52px; }
     <button class="go" onclick="saveTimetableAndLaunch()">▶ SAVE & LAUNCH</button>
   </div>
   <span class="save-indicator" id="save-indicator">✓ SAVED</span>
+</div>
+
+<!-- ═══════ IMPORT MODAL ═══════ -->
+<div id="import-modal">
+  <div class="import-card">
+    <div class="import-header">
+      <h3>📷 IMPORT FROM SCHOOLBOX</h3>
+      <button class="acct-close" onclick="closeImportModal()">✕ CLOSE</button>
+    </div>
+    <div class="import-body">
+      <!-- Week target selector -->
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <span style="font-family:'Orbitron',sans-serif;font-size:0.58rem;letter-spacing:0.1em;color:var(--dim-text)">IMPORT AS:</span>
+        <button class="import-week-tab active" id="import-target-w1" onclick="setImportTargetWeek(1)">WEEK 1</button>
+        <button class="import-week-tab" id="import-target-w2" onclick="setImportTargetWeek(2)">WEEK 2</button>
+      </div>
+      <!-- Drop zone -->
+      <div class="import-drop-zone" id="import-drop-zone"
+           onclick="document.getElementById('import-file-input').click()"
+           ondragover="event.preventDefault();this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="handleImportDrop(event)">
+        <div class="import-drop-icon">📸</div>
+        <div class="import-drop-text">SCREENSHOT YOUR SCHOOLBOX TIMETABLE</div>
+        <div class="import-drop-hint">Click to upload or drag & drop · PNG, JPG</div>
+      </div>
+      <input type="file" id="import-file-input" accept="image/*" onchange="handleImportFile(event)">
+      <div class="import-status" id="import-status"></div>
+      <div class="import-preview" id="import-preview">
+        <div class="import-preview-title">PREVIEW — CHECK BEFORE IMPORTING</div>
+        <div id="import-preview-body"></div>
+      </div>
+    </div>
+    <div class="import-footer">
+      <button class="import-btn cancel" onclick="closeImportModal()">CANCEL</button>
+      <button class="import-btn confirm" id="import-confirm-btn" style="display:none" onclick="confirmImport()">✓ IMPORT TIMETABLE</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ DISPLAY ═══ -->
@@ -2537,6 +2576,164 @@ function checkOverdueTodos() {
     banner.classList.remove('show');
   }
 }
+
+/* ══════════════════════════════════════════════════
+   TIMETABLE IMPORT FROM SCHOOLBOX SCREENSHOT
+══════════════════════════════════════════════════ */
+let importedData = {};
+let importTargetWeek = 1;
+
+const SCHOOL_DAYS = ['Mon','Tue','Wed','Thu','Fri'];
+const DAY_NUM_MAP = {'1':'Mon','2':'Tue','3':'Wed','4':'Thu','5':'Fri'};
+
+function openImportModal() {
+  document.getElementById('import-modal').classList.add('open');
+  resetImportModal();
+}
+function closeImportModal() {
+  document.getElementById('import-modal').classList.remove('open');
+}
+function resetImportModal() {
+  importedData = {};
+  importTargetWeek = 1;
+  document.getElementById('import-status').textContent = '';
+  document.getElementById('import-status').className = 'import-status';
+  document.getElementById('import-preview').classList.remove('show');
+  document.getElementById('import-confirm-btn').style.display = 'none';
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-target-w1')?.classList.add('active');
+  document.getElementById('import-target-w2')?.classList.remove('active');
+}
+
+function setImportTargetWeek(w) {
+  importTargetWeek = w;
+  document.getElementById('import-target-w1').classList.toggle('active', w === 1);
+  document.getElementById('import-target-w2').classList.toggle('active', w === 2);
+}
+
+function handleImportDrop(e) {
+  e.preventDefault();
+  document.getElementById('import-drop-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processImportFile(file);
+}
+function handleImportFile(e) {
+  const file = e.target.files[0];
+  if (file) processImportFile(file);
+}
+
+async function processImportFile(file) {
+  const status = document.getElementById('import-status');
+  status.textContent = '🔍 Analysing screenshot with AI…';
+  status.className = 'import-status loading';
+  document.getElementById('import-preview').classList.remove('show');
+  document.getElementById('import-confirm-btn').style.display = 'none';
+
+  try {
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+
+    const response = await fetch('/api/parse-timetable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64, mediaType: file.type || 'image/png' })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+
+    const periods = data.periods;
+    if (!Array.isArray(periods) || !periods.length) throw new Error('No periods found in screenshot');
+
+    // Group into timetableData format using selected target week
+    importedData = {};
+    periods.forEach(p => {
+      if (!p.day || !SCHOOL_DAYS.includes(p.day)) return;
+      const key = p.day + '_W' + importTargetWeek;
+      if (!importedData[key]) importedData[key] = [];
+      importedData[key].push({
+        num:   p.num || '',
+        name:  p.name || '',
+        start: p.start || '',
+        end:   p.end || '',
+        type:  p.type || 'class',
+        room:  p.room || '',
+      });
+    });
+
+    // Sort each day by start time
+    Object.keys(importedData).forEach(key => {
+      importedData[key].sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+    });
+
+    const total = Object.values(importedData).reduce((s, v) => s + v.length, 0);
+    status.textContent = `✓ Found ${total} periods across ${Object.keys(importedData).length} days`;
+    status.className = 'import-status ok';
+    renderImportPreview();
+    document.getElementById('import-confirm-btn').style.display = 'inline';
+
+  } catch(err) {
+    console.error('Import failed:', err);
+    status.textContent = '✕ Could not read timetable — try a clearer screenshot';
+    status.className = 'import-status err';
+  }
+}
+
+function renderImportPreview() {
+  document.getElementById('import-preview').classList.add('show');
+  const body = document.getElementById('import-preview-body');
+  let html = '';
+  SCHOOL_DAYS.forEach(day => {
+    const key = day + '_W' + importTargetWeek;
+    const periods = importedData[key];
+    if (!periods || !periods.length) return;
+    html += `<div class="import-day-block">
+      <div class="import-day-label">${day.toUpperCase()}</div>
+      ${periods.map(p => `
+        <div class="import-period-row">
+          <span class="ip-num">${p.num || '—'}</span>
+          <span class="ip-name">${p.name}</span>
+          <span class="ip-type ${p.type}">${p.type}</span>
+          ${p.room ? `<span class="ip-room" title="${formatRoom(p.room)}">${p.room}</span>` : ''}
+        </div>`).join('')}
+    </div>`;
+  });
+  body.innerHTML = html || '<div style="color:var(--dim-text);font-size:0.65rem;padding:0.5rem">No periods detected.</div>';
+}
+
+function formatRoom(raw) {
+  if (!raw) return '';
+  const m = raw.match(/^([A-Z])([A-Z])(\d+)$/);
+  if (m) {
+    const floor = m[2] === 'G' ? 'Ground Floor' : `Floor ${m[2]}`;
+    return `${m[1]} Block, ${floor}, Room ${m[3]}`;
+  }
+  return raw;
+}
+
+function confirmImport() {
+  if (!Object.keys(importedData).length) return;
+  Object.assign(timetableData, importedData);
+  const userId = session?.user?.id;
+  if (userId) {
+    const saves = Object.keys(importedData).map(key =>
+      sbUpsert('timetables', { user_id: userId, day: key, periods: JSON.stringify(timetableData[key] || []) }, 'user_id,day')
+    );
+    Promise.all(saves).then(() => {
+      const si = document.getElementById('save-indicator');
+      if (si) { si.style.opacity = '1'; setTimeout(() => si.style.opacity = '0', 2000); }
+    });
+  }
+  closeImportModal();
+  loadDayRows();
+  const weekName = 'Week ' + importTargetWeek;
+  showFsMsg(`Timetable imported into ${weekName}!`, 'ok');
+}
+
 
 init();
 </script>
