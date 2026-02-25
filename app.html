@@ -1521,7 +1521,7 @@ function tick(){
       pd.innerHTML=`${Math.floor(pct)}<span class="percent-symbol">%</span>`; pd.className='percent-display'+(nearEnd?' near-end':'');
       pf.style.width=pct+'%'; pf.className='progress-bar-fill'+(nearEnd?' near-end':'');
       trEl.textContent=fmtCountdown(remaining); trEl.className='time-remaining';
-      scheduleNotifForPeriod(cur, toMin(cur.end));
+      scheduleNotifForPeriod(current, toMin(current.end));
       emEl.textContent=''; nameEl.textContent=current.name; nameEl.className='current-class-name'; nowTag.textContent='NOW';
     }
     document.getElementById('current-time').textContent=`${fmtTime(current.start)} – ${fmtTime(current.end)}`;
@@ -1544,6 +1544,7 @@ function tick(){
     document.getElementById('next-time').textContent='';
   }
   updateSchoolDayBar(periods,nowM,dayMode);
+  updateLiveNoteBtn();
 }
 
 /* ══ DRAWERS ══ */
@@ -2248,6 +2249,29 @@ let periodNotes = JSON.parse(localStorage.getItem('kronos_notes') || '{}');
 let activeNoteKey = null;
 
 function noteKey(day, periodName) { return `${day}__${periodName}`; }
+
+function openLiveNote() {
+  // Get the currently displayed period name
+  const periodName = document.getElementById('current-name')?.textContent;
+  if (!periodName || periodName === '— No Class Now —') return;
+  const day = activeDisplayDay + '_W' + activeDisplayWeek;
+  openNoteModal(day, periodName);
+}
+
+function updateLiveNoteBtn() {
+  const btn = document.getElementById('live-note-btn');
+  if (!btn) return;
+  const periodName = document.getElementById('current-name')?.textContent;
+  if (!periodName || periodName === '— No Class Now —') {
+    btn.style.display = 'none'; return;
+  }
+  btn.style.display = 'inline';
+  const day = activeDisplayDay + '_W' + activeDisplayWeek;
+  const hasNote = !!periodNotes[noteKey(day, periodName)];
+  btn.classList.toggle('has-note', hasNote);
+  btn.textContent = hasNote ? '📝' : '✎';
+  btn.style.opacity = hasNote ? '1' : '0.4';
+}
 
 function openNoteModal(day, periodName) {
   activeNoteKey = noteKey(day, periodName);
