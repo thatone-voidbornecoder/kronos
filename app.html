@@ -1297,7 +1297,11 @@ function addRow(num='', name='', start='', end='', type='class') {
   setRowClass(tr, type);
   tr.innerHTML = `
     <td><input type="number" min="1" max="30" value="${num||(type==='class'?idx+1:'')}" style="width:52px"></td>
-    <td><input type="text" placeholder="${type==='break'?'e.g. Morning Break':type==='study'?'e.g. Study Period':'e.g. Computer Science HL'}" value="${name}"></td>
+    <td style="position:relative">
+      <input type="text" placeholder="${type==='break'?'e.g. Morning Break':type==='study'?'e.g. Study Period':'e.g. Computer Science HL'}" value="${name}">
+      <button class="period-note-btn" title="Period notes" onclick="openSetupRowNote(this)"
+        style="position:absolute;right:2px;top:50%;transform:translateY(-50%)">✎</button>
+    </td>
     <td><input type="time" value="${start}"></td>
     <td><input type="time" value="${end}"></td>
     <td><select class="type-select"><option value="class" ${type==='class'?'selected':''}>Class</option><option value="break" ${type==='break'?'selected':''}>Break</option><option value="study" ${type==='study'?'selected':''}>Study</option></select></td>
@@ -1521,7 +1525,7 @@ function tick(){
       pd.innerHTML=`${Math.floor(pct)}<span class="percent-symbol">%</span>`; pd.className='percent-display'+(nearEnd?' near-end':'');
       pf.style.width=pct+'%'; pf.className='progress-bar-fill'+(nearEnd?' near-end':'');
       trEl.textContent=fmtCountdown(remaining); trEl.className='time-remaining';
-      scheduleNotifForPeriod(current, toMin(current.end));
+      scheduleNotifForPeriod(cur, toMin(cur.end));
       emEl.textContent=''; nameEl.textContent=current.name; nameEl.className='current-class-name'; nowTag.textContent='NOW';
     }
     document.getElementById('current-time').textContent=`${fmtTime(current.start)} – ${fmtTime(current.end)}`;
@@ -2250,8 +2254,17 @@ let activeNoteKey = null;
 
 function noteKey(day, periodName) { return `${day}__${periodName}`; }
 
+function openSetupRowNote(btn) {
+  // Find the name input in the same row
+  const row = btn.closest('tr');
+  const nameInput = row.querySelector('input[type="text"]');
+  const periodName = nameInput?.value?.trim();
+  if (!periodName) { alert('Name the period first, then add a note.'); return; }
+  const day = setupKey();
+  openNoteModal(day, periodName);
+}
+
 function openLiveNote() {
-  // Get the currently displayed period name
   const periodName = document.getElementById('current-name')?.textContent;
   if (!periodName || periodName === '— No Class Now —') return;
   const day = activeDisplayDay + '_W' + activeDisplayWeek;
@@ -2262,7 +2275,7 @@ function updateLiveNoteBtn() {
   const btn = document.getElementById('live-note-btn');
   if (!btn) return;
   const periodName = document.getElementById('current-name')?.textContent;
-  if (!periodName || periodName === '— No Class Now —') {
+  if (!periodName || periodName === '— No Class Now —' || periodName === '') {
     btn.style.display = 'none'; return;
   }
   btn.style.display = 'inline';
@@ -2294,6 +2307,19 @@ function saveNote() {
   localStorage.setItem('kronos_notes', JSON.stringify(periodNotes));
   closeNoteModal();
   renderNoteButtons();
+  updateLiveNoteBtn();
+  // Update the setup row button that triggered this if visible
+  document.querySelectorAll('.period-note-btn').forEach(btn => {
+    const row = btn.closest('tr');
+    if (!row) return;
+    const nameInput = row.querySelector('input[type="text"]');
+    const name = nameInput?.value?.trim();
+    if (!name) return;
+    const key = noteKey(setupKey(), name);
+    const has = !!periodNotes[key];
+    btn.classList.toggle('has-note', has);
+    btn.textContent = has ? '📝' : '✎';
+  });
 }
 
 function renderNoteButtons() {
