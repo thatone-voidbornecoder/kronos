@@ -483,6 +483,75 @@ button.go { font-size:0.95rem; padding:0.8rem 2.8rem; }
 }
 
 
+
+
+/* ── Friend nickname ── */
+.fs-friend { position: relative; }
+.fs-nick-btn {
+  position: absolute; top: 4px; right: 4px;
+  background: transparent; border: none;
+  font-size: 0.65rem; color: var(--dim-text);
+  cursor: pointer; opacity: 0; transition: opacity 0.15s; padding: 2px 4px;
+  line-height: 1;
+}
+.fs-friend:hover .fs-nick-btn { opacity: 1; }
+.fs-nick-btn:hover { color: var(--gold); }
+
+#nick-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+#nick-modal.open { opacity: 1; pointer-events: auto; }
+.nick-card {
+  background: var(--panel); border: 1px solid var(--border);
+  width: 100%; max-width: 320px; padding: 1.4rem 1.6rem;
+  display: flex; flex-direction: column; gap: 0.8rem;
+  box-shadow: 0 0 60px rgba(0,0,0,0.8);
+}
+.nick-card h3 {
+  font-family: 'Orbitron', sans-serif; font-size: 0.68rem;
+  letter-spacing: 0.12em; color: var(--gold);
+}
+.nick-card .nick-sub {
+  font-size: 0.6rem; color: var(--dim-text); margin-top: -0.4rem;
+}
+.nick-input {
+  background: var(--bg); border: 1px solid var(--dim);
+  color: #fff; font-family: 'Share Tech Mono', monospace;
+  font-size: 0.85rem; padding: 0.5rem 0.7rem;
+  outline: none; width: 100%; transition: border-color 0.2s;
+}
+.nick-input:focus { border-color: var(--gold); }
+.nick-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+.nick-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.58rem;
+  letter-spacing: 0.1em; padding: 0.35rem 0.8rem;
+  border: 1px solid; background: transparent; cursor: pointer; transition: all 0.2s;
+}
+.nick-btn.save  { border-color: var(--gold); color: var(--gold); }
+.nick-btn.save:hover { background: var(--gold); color: #000; }
+.nick-btn.clear { border-color: var(--dim); color: var(--dim-text); }
+.nick-btn.clear:hover { border-color: var(--red); color: var(--red); }
+.nick-btn.close { border-color: var(--dim); color: var(--dim-text); }
+.nick-btn.close:hover { border-color: var(--dim); color: #fff; }
+
+/* ── Period override ── */
+#period-override-row {
+  display: none; gap: 0.4rem; justify-content: center;
+  margin-top: 0.4rem; flex-wrap: wrap;
+}
+#period-override-row.show { display: flex; }
+.override-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.52rem; letter-spacing: 0.08em;
+  padding: 0.25rem 0.65rem; border: 1px solid var(--dim); background: transparent;
+  color: var(--dim-text); cursor: pointer; transition: all 0.2s;
+}
+.override-btn:hover { border-color: var(--gold); color: var(--gold); }
+.override-btn.active-override { border-color: var(--gold); color: #000; background: var(--gold); }
+.override-btn.study-override.active-override { border-color: var(--study-col); color: #000; background: var(--study-col); }
+.override-btn.free-override.active-override { border-color: var(--green); color: #000; background: var(--green); }
+
 /* ── Period notes ── */
 .period-note-btn {
   position: absolute; top: 0.4rem; right: 0.5rem;
@@ -948,6 +1017,11 @@ body { padding-right: 52px; }
             onmouseenter="this.style.opacity=1"
             onmouseleave="this.style.opacity=this.classList.contains('has-note')?1:0.35">✎</button>
         </div>
+        <div id="period-override-row">
+          <button class="override-btn" onclick="setPeriodOverride(null)" id="ovr-class">CLASS</button>
+          <button class="override-btn study-override" onclick="setPeriodOverride('study')" id="ovr-study">📖 STUDY</button>
+          <button class="override-btn free-override" onclick="setPeriodOverride('free')" id="ovr-free">✦ FREE</button>
+        </div>
         <div class="current-class-time" id="current-time"></div>
       </div>
       <div>
@@ -1113,6 +1187,21 @@ body { padding-right: 52px; }
   </div>
 </div>
 
+
+<!-- ═══ NICKNAME MODAL ═══ -->
+<div id="nick-modal">
+  <div class="nick-card">
+    <h3>✏️ SET NICKNAME</h3>
+    <div class="nick-sub" id="nick-modal-sub">Only you can see this</div>
+    <input class="nick-input" id="nick-input" maxlength="40" placeholder="Enter nickname…"
+           onkeydown="if(event.key==='Enter')saveNickname()">
+    <div class="nick-actions">
+      <button class="nick-btn clear" onclick="saveNickname(true)">CLEAR</button>
+      <button class="nick-btn close" onclick="closeNickModal()">CANCEL</button>
+      <button class="nick-btn save" onclick="saveNickname()">SAVE</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ NOTE MODAL ═══ -->
 <div id="note-modal">
@@ -1524,6 +1613,8 @@ function updateStreak() {
   if(s.lastDay===today)return;
   const ns={count:(s.lastDay===yStr)?s.count+1:1,lastDay:today};
   localStorage.setItem('ct_streak',JSON.stringify(ns));
+  const uid=session?.user?.id;
+  if(uid) sbPatch('profiles',`user_id=eq.${uid}`,{streak:ns.count}).catch(()=>{});
 }
 function renderStreak() {
   const s=getStreak();
@@ -1631,7 +1722,8 @@ function tick(){
     const s=timeToMinutes(current.start),e=timeToMinutes(current.end);
     const total=(e-s)*60,elapsed=(nowM-s)*60;
     const remaining=Math.max(0,total-elapsed),pct=Math.min(100,Math.max(0,(elapsed/total)*100));
-    const t=current.type||'class';
+    const effectiveOverride=(periodOverride&&overridePeriodName===current.name)?periodOverride:null;
+    const t=effectiveOverride||current.type||'class';
     if(t==='break'){
       dayMode='break'; if(lastQuoteType!=='break')pickQuote('break');
       lp.className='left-panel break-bg'; divEl.className='divider break-div';
@@ -1682,6 +1774,7 @@ function tick(){
   }
   updateSchoolDayBar(periods,nowM,dayMode);
   updateLiveNoteBtn();
+  updateOverrideUI();
 }
 
 /* ══ DRAWERS ══ */
@@ -2078,18 +2171,22 @@ function renderFriendsList() {
     list.innerHTML = '<div class="fs-empty-tab">No friends yet.<br>Search by @username above.</div>';
     return;
   }
-  list.innerHTML = friends.map(f => `
+  list.innerHTML = friends.map(f => {
+    const shown = getFriendDisplay(f);
+    const hasNick = !!friendNicknames[f.username];
+    return `
     <div class="fs-friend" title="@${f.username}">
+      <button class="fs-nick-btn" onclick="openNickModal('${f.username}','${f.display}')" title="${hasNick ? 'Edit nickname' : 'Set nickname'}">✏</button>
       <div class="fs-avatar" style="background:${avatarBg(f.username)}">
-        ${f.display.slice(0,1).toUpperCase()}
+        ${shown.slice(0,1).toUpperCase()}
         <span class="fs-status-dot ${f.status}"></span>
       </div>
       <div class="fs-info">
-        <div class="fs-name">${f.display.toUpperCase()}</div>
+        <div class="fs-name">${shown.toUpperCase()}${hasNick ? '<span style="font-size:0.45rem;color:var(--dim-text);margin-left:0.3rem">✏</span>' : ''}</div>
         <div class="fs-period ${f.status}">${f.period ? f.period : '@' + f.username}</div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderRequestsList() {
@@ -2732,6 +2829,64 @@ function confirmImport() {
   loadDayRows();
   const weekName = 'Week ' + importTargetWeek;
   showFsMsg(`Timetable imported into ${weekName}!`, 'ok');
+}
+
+
+let periodOverride = null;
+let overridePeriodName = null;
+function setPeriodOverride(type) {
+  periodOverride = type;
+  overridePeriodName = document.getElementById('current-name')?.textContent || null;
+  updateOverrideUI();
+}
+function updateOverrideUI() {
+  const row = document.getElementById('period-override-row');
+  const currentName = document.getElementById('current-name')?.textContent;
+  const hasPeriod = currentName && currentName !== '— No Class Now —' && currentName !== '—' && currentName !== '';
+  row?.classList.toggle('show', !!hasPeriod);
+  if (overridePeriodName && overridePeriodName !== currentName) { periodOverride = null; overridePeriodName = null; }
+  document.getElementById('ovr-class')?.classList.toggle('active-override', !periodOverride);
+  document.getElementById('ovr-study')?.classList.toggle('active-override', periodOverride === 'study');
+  document.getElementById('ovr-free')?.classList.toggle('active-override', periodOverride === 'free');
+}
+
+/* ══════════════════════════════════════════════════
+   FRIEND NICKNAMES — private, stored in localStorage
+   friendNicknames[username] = "custom display name"
+══════════════════════════════════════════════════ */
+let friendNicknames = JSON.parse(localStorage.getItem('kronos_nicknames') || '{}');
+let activeNickUsername = null;
+
+function getFriendDisplay(friend) {
+  // Returns nickname if set, otherwise real display name
+  return friendNicknames[friend.username] || friend.display;
+}
+
+function openNickModal(username, currentDisplay) {
+  activeNickUsername = username;
+  document.getElementById('nick-modal-sub').textContent = `Nickname for @${username} · only you see this`;
+  document.getElementById('nick-input').value = friendNicknames[username] || '';
+  document.getElementById('nick-modal').classList.add('open');
+  setTimeout(() => document.getElementById('nick-input').focus(), 80);
+}
+
+function closeNickModal() {
+  document.getElementById('nick-modal').classList.remove('open');
+  activeNickUsername = null;
+}
+
+function saveNickname(clear = false) {
+  if (!activeNickUsername) return;
+  if (clear) {
+    delete friendNicknames[activeNickUsername];
+  } else {
+    const val = document.getElementById('nick-input').value.trim();
+    if (val) friendNicknames[activeNickUsername] = val;
+    else delete friendNicknames[activeNickUsername];
+  }
+  localStorage.setItem('kronos_nicknames', JSON.stringify(friendNicknames));
+  closeNickModal();
+  renderFriendsSidebar(); // re-render to show updated name
 }
 
 
