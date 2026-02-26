@@ -2028,7 +2028,17 @@ let activeFsTab = 'friends';
 
 
 /* ── Compute a friend's live status from their timetable ── */
-function computeFriendStatus(timetable) {
+function computeFriendStatus(timetable, overrideJson) {
+  // Check if friend has a live override set
+  if (overrideJson) {
+    try {
+      const ov = typeof overrideJson === 'string' ? JSON.parse(overrideJson) : overrideJson;
+      if (ov && ov.expires && Date.now() < ov.expires) {
+        return { type: ov.type, name: ov.period };
+      }
+    } catch(e) {}
+  }
+
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const todayName = days[new Date().getDay()];
   const weekdays = ['Mon','Tue','Wed','Thu','Fri'];
@@ -2089,7 +2099,7 @@ async function loadFriends() {
     // Step 3: fetch their profiles in one query
     if (friendIds.length) {
       const profs = await sbGet('profiles',
-        `user_id=in.(${friendIds.join(',')})&select=user_id,username,display_name`
+        `user_id=in.(${friendIds.join(',')})&select=user_id,username,display_name,status_override`
       );
       // Fetch their timetables to compute live status
       const friendProfs = (Array.isArray(profs) ? profs : []);
@@ -2109,7 +2119,7 @@ async function loadFriends() {
       });
 
       friends = friendProfs.map(p => {
-        const status = computeFriendStatus(friendTimetables[p.user_id] || {});
+        const status = computeFriendStatus(friendTimetables[p.user_id] || {}, p.status_override);
         return {
           username: p.username || '?',
           display: p.display_name || p.username || '?',
@@ -2838,13 +2848,38 @@ function setPeriodOverride(type) {
   periodOverride = type;
   overridePeriodName = document.getElementById('current-name')?.textContent || null;
   updateOverrideUI();
+  broadcastOverride(type, overridePeriodName);
+}
+
+async function broadcastOverride(type, periodName) {
+  const uid = session?.user?.id;
+  if (!uid) return;
+  try {
+    if (type) {
+      // Expires when current period ends — compute end time
+      const periods = parseTimetable(activeDisplayDay, activeDisplayWeek);
+      const nowM = nowMinutes();
+      const cur = periods.find(p => nowM >= timeToMinutes(p.start) && nowM < timeToMinutes(p.end));
+      const expiresAt = cur ? Date.now() + (timeToMinutes(cur.end) - nowM) * 60 * 1000 : Date.now() + 90 * 60 * 1000;
+      await sbPatch('profiles', `user_id=eq.${uid}`, {
+        status_override: JSON.stringify({ type, period: periodName, expires: expiresAt })
+      });
+    } else {
+      // Clear override
+      await sbPatch('profiles', `user_id=eq.${uid}`, { status_override: null });
+    }
+  } catch(e) { console.warn('Override broadcast failed', e); }
 }
 function updateOverrideUI() {
   const row = document.getElementById('period-override-row');
   const currentName = document.getElementById('current-name')?.textContent;
   const hasPeriod = currentName && currentName !== '— No Class Now —' && currentName !== '—' && currentName !== '';
   row?.classList.toggle('show', !!hasPeriod);
-  if (overridePeriodName && overridePeriodName !== currentName) { periodOverride = null; overridePeriodName = null; }
+  if (overridePeriodName && overridePeriodName !== currentName) {
+    // Period changed — clear override and broadcast the clear
+    if (periodOverride) broadcastOverride(null, null);
+    periodOverride = null; overridePeriodName = null;
+  }
   document.getElementById('ovr-class')?.classList.toggle('active-override', !periodOverride);
   document.getElementById('ovr-study')?.classList.toggle('active-override', periodOverride === 'study');
   document.getElementById('ovr-free')?.classList.toggle('active-override', periodOverride === 'free');
