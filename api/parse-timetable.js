@@ -1,8 +1,9 @@
-// Vercel serverless function — Gemini Vision proxy
-// Free tier: 1500 requests/day
-// env var: GEMINI_API_KEY
+// api/parse-timetable.js
+// Kronos — Gemini Vision proxy for timetable screenshot import
+// Free tier: 1500 requests/day on Gemini Flash
+// Required env var: GEMINI_API_KEY (set in Vercel dashboard)
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -30,15 +31,15 @@ PARSING RULES:
    Day 2 = Mon, Day 3 = Tue, Day 4 = Wed, Day 5 = Thu, Day 6 = Fri
 
 2. PERIOD NAME: Extract the text between the period marker and the opening parenthesis.
-   "Day 4, Period 1, Computer Science HL (12 CSHL FAr[D]), DG69" → "Computer Science HL"
-   "Day 2, HR, Homeroom 1 (12D HR MHi)" → "Homeroom 1"
+   "Day 4, Period 1, Computer Science HL (12 CSHL FAr[D]), DG69" -> "Computer Science HL"
+   "Day 2, HR, Homeroom 1 (12D HR MHi)" -> "Homeroom 1"
 
 3. PERIOD NUMBER: The number after "Period". HR/Homeroom = use 0. Registration = skip entirely.
 
 4. ROOM: The last token after the final comma, OUTSIDE the parentheses.
-   "(12 CSHL FAr[D]), DG69" → room is "DG69"
-   "(12D HR MHi)" → no room (nothing after closing paren)
-   "(12-Tue1-3-ST ST SL2), Mark Bishop Lounge" → room is "Mark Bishop Lounge"
+   "(12 CSHL FAr[D]), DG69" -> room is "DG69"
+   "(12D HR MHi)" -> no room (nothing after closing paren)
+   "(12-Tue1-3-ST ST SL2), Mark Bishop Lounge" -> room is "Mark Bishop Lounge"
    If room looks like a building code (e.g. DG69, CF59, BS13, EF101): keep as-is.
    If room is a named place (e.g. "Design Lab", "Mark Bishop Lounge"): keep as-is.
 
@@ -47,13 +48,13 @@ PARSING RULES:
    - "study" if name contains: Study, Study Time
    - "class" for everything else (including Homeroom, TOK, Islamic B, French, etc.)
 
-6. SKIP: Any block that says "Registration" — do not include it in the output.
+6. SKIP: Any block that says "Registration" - do not include it in the output.
 
 7. TIMES: Read the bold time range shown at the top of each block (e.g. "7:50am - 9:10am").
-   Convert to 24h HH:MM format: 7:50am → 07:50, 1:55pm → 13:55, 12:10pm → 12:10
+   Convert to 24h HH:MM format: 7:50am -> 07:50, 1:55pm -> 13:55, 12:10pm -> 12:10
    If no time visible for a block, use "".
 
-8. IGNORE everything inside parentheses () — that's just grade/teacher/block info.
+8. IGNORE everything inside parentheses () - that is just grade/teacher/block info.
 
 Return ONLY a valid JSON array, no markdown, no explanation, no extra text:
 [
@@ -79,7 +80,7 @@ Extract ALL periods from ALL visible days. Do not skip any non-Registration bloc
             ]
           }],
           generationConfig: {
-            temperature: 0,       // deterministic output
+            temperature: 0,
             maxOutputTokens: 8192,
           }
         })
@@ -95,7 +96,6 @@ Extract ALL periods from ALL visible days. Do not skip any non-Registration bloc
 
     const data = await response.json();
 
-    // Handle safety blocks or empty responses
     if (data.promptFeedback?.blockReason) {
       res.status(500).json({ error: `Request blocked: ${data.promptFeedback.blockReason}` });
       return;
@@ -108,8 +108,12 @@ Extract ALL periods from ALL visible days. Do not skip any non-Registration bloc
       return;
     }
 
-    // Strip markdown fences if present
-    const clean = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    // Strip markdown fences if the model wraps output in them anyway
+    const clean = text
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
 
     let periods;
     try {
@@ -128,8 +132,22 @@ Extract ALL periods from ALL visible days. Do not skip any non-Registration bloc
       return;
     }
 
-    // Sanitise: remove any Registration entries that slipped through
-    periods = periods.filter(p => p.name && !p.name.toLowerCase().includes('registration'));
+    // Sanitise all fields so the frontend always gets clean, consistent data
+    const VALID_DAYS  = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+    const VALID_TYPES = new Set(['class', 'break', 'study']);
+
+    periods = periods
+      .filter(p => p?.name && !p.name.toLowerCase().includes('registration'))
+      .filter(p => VALID_DAYS.has(p.day))
+      .map(p => ({
+        day:   p.day,
+        num:   String(p.num ?? ''),   // coerce to string — frontend uses p.num || ''
+        name:  String(p.name).trim(),
+        start: String(p.start ?? '').trim(),
+        end:   String(p.end   ?? '').trim(),
+        type:  VALID_TYPES.has(p.type) ? p.type : 'class',
+        room:  String(p.room  ?? '').trim(),
+      }));
 
     res.status(200).json({ periods });
 
@@ -137,4 +155,4 @@ Extract ALL periods from ALL visible days. Do not skip any non-Registration bloc
     console.error('Handler error:', err);
     res.status(500).json({ error: err.message });
   }
-};
+}
