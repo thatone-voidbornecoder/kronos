@@ -1,7 +1,6 @@
 // api/parse-timetable.js
-// Kronos — Gemini Vision proxy for timetable screenshot import
-// Free tier: 1500 requests/day on Gemini Flash
-// Required env var: GEMINI_API_KEY (set in Vercel dashboard)
+// Kronos — OpenAI GPT-4o Vision proxy for timetable screenshot import
+// Required env var: OPENAI_API_KEY (set in Vercel dashboard)
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -11,8 +10,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
   if (req.method !== 'POST')    { res.status(405).json({ error: 'Method not allowed' }); return; }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) { res.status(500).json({ error: 'GEMINI_API_KEY not set in environment variables' }); return; }
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) { res.status(500).json({ error: 'OPENAI_API_KEY not set in environment variables' }); return; }
 
   const { image, mediaType } = req.body;
   if (!image) { res.status(400).json({ error: 'No image provided' }); return; }
@@ -67,44 +66,44 @@ Return ONLY a valid JSON array, no markdown, no explanation, no extra text:
 Extract ALL periods from ALL visible days. Do not skip any non-Registration blocks.`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: mediaType || 'image/png', data: image } },
-              { text: prompt }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0,
-            maxOutputTokens: 8192,
-          }
-        })
-      }
-    );
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 4096,
+        temperature: 0,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mediaType || 'image/png'};base64,${image}`,
+                detail: 'high',
+              },
+            },
+            { type: 'text', text: prompt },
+          ],
+        }],
+      }),
+    });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Gemini error:', response.status, errText);
-      res.status(500).json({ error: `Gemini API error ${response.status}: ${errText}` });
+      console.error('OpenAI error:', response.status, errText);
+      res.status(500).json({ error: `OpenAI API error ${response.status}: ${errText}` });
       return;
     }
 
     const data = await response.json();
-
-    if (data.promptFeedback?.blockReason) {
-      res.status(500).json({ error: `Request blocked: ${data.promptFeedback.blockReason}` });
-      return;
-    }
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = data.choices?.[0]?.message?.content || '';
     if (!text) {
-      console.error('Empty Gemini response:', JSON.stringify(data));
-      res.status(500).json({ error: 'Gemini returned an empty response' });
+      console.error('Empty OpenAI response:', JSON.stringify(data));
+      res.status(500).json({ error: 'OpenAI returned an empty response' });
       return;
     }
 
@@ -119,16 +118,16 @@ Extract ALL periods from ALL visible days. Do not skip any non-Registration bloc
     try {
       periods = JSON.parse(clean);
     } catch (parseErr) {
-      console.error('JSON parse failed. Raw Gemini output:', clean.slice(0, 500));
+      console.error('JSON parse failed. Raw output:', clean.slice(0, 500));
       res.status(500).json({
-        error: 'Could not parse Gemini response as JSON',
+        error: 'Could not parse OpenAI response as JSON',
         raw: clean.slice(0, 300)
       });
       return;
     }
 
     if (!Array.isArray(periods)) {
-      res.status(500).json({ error: 'Expected a JSON array from Gemini', raw: clean.slice(0, 300) });
+      res.status(500).json({ error: 'Expected a JSON array from OpenAI', raw: clean.slice(0, 300) });
       return;
     }
 
@@ -141,7 +140,7 @@ Extract ALL periods from ALL visible days. Do not skip any non-Registration bloc
       .filter(p => VALID_DAYS.has(p.day))
       .map(p => ({
         day:   p.day,
-        num:   String(p.num ?? ''),   // coerce to string — frontend uses p.num || ''
+        num:   String(p.num ?? ''),
         name:  String(p.name).trim(),
         start: String(p.start ?? '').trim(),
         end:   String(p.end   ?? '').trim(),
