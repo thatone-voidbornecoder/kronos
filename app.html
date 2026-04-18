@@ -932,11 +932,22 @@ body { padding-right: 52px; }
       <button class="acct-close" onclick="closeImportModal()">✕ CLOSE</button>
     </div>
     <div class="import-body">
-      <!-- Week target selector -->
+<!-- Week target selector -->
       <div style="display:flex;gap:0.5rem;align-items:center">
         <span style="font-family:'Orbitron',sans-serif;font-size:0.58rem;letter-spacing:0.1em;color:var(--dim-text)">IMPORT AS:</span>
         <button class="import-week-tab active" id="import-target-w1" onclick="setImportTargetWeek(1)">WEEK 1</button>
         <button class="import-week-tab" id="import-target-w2" onclick="setImportTargetWeek(2)">WEEK 2</button>
+      </div>
+      <!-- Import options -->
+      <div style="display:flex;gap:1.2rem;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;font-size:0.65rem;color:var(--dim-text);letter-spacing:0.08em">
+          <input type="checkbox" id="import-opt-breaks" style="accent-color:var(--break-col);width:13px;height:13px">
+          INCLUDE BREAK &amp; LUNCH
+        </label>
+        <label style="display:flex;align-items:center;gap:0.45rem;cursor:pointer;font-size:0.65rem;color:var(--dim-text);letter-spacing:0.08em">
+          <input type="checkbox" id="import-opt-reg" style="accent-color:var(--gold);width:13px;height:13px">
+          INCLUDE REGISTRATION
+        </label>
       </div>
       <!-- Drop zone -->
       <div class="import-drop-zone" id="import-drop-zone"
@@ -2736,6 +2747,9 @@ async function processImportFile(file) {
   document.getElementById('import-preview').classList.remove('show');
   document.getElementById('import-confirm-btn').style.display = 'none';
 
+  const includeBreaks = document.getElementById('import-opt-breaks')?.checked || false;
+  const includeRegistration = document.getElementById('import-opt-reg')?.checked || false;
+
   try {
     const base64 = await new Promise((res, rej) => {
       const r = new FileReader();
@@ -2747,13 +2761,13 @@ async function processImportFile(file) {
     const response = await fetch('/api/parse-timetable', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64, mediaType: file.type || 'image/png' })
+      body: JSON.stringify({ image: base64, mediaType: file.type || 'image/png', includeRegistration })
     });
 
     const data = await response.json();
     if (data.error) throw new Error(data.error);
 
-    const periods = data.periods;
+    let periods = data.periods;
     if (!Array.isArray(periods) || !periods.length) throw new Error('No periods found in screenshot');
 
     // Group into timetableData format using selected target week
@@ -2776,6 +2790,40 @@ async function processImportFile(file) {
     Object.keys(importedData).forEach(key => {
       importedData[key].sort((a, b) => (a.start || '').localeCompare(b.start || ''));
     });
+
+    // Inject break/lunch periods into gaps if option is enabled
+    if (includeBreaks) {
+      function toMins(t) {
+        if (!t) return null;
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      }
+      function toHHMM(mins) {
+        return String(Math.floor(mins / 60)).padStart(2, '0') + ':' + String(mins % 60).padStart(2, '0');
+      }
+      Object.keys(importedData).forEach(key => {
+        const day = importedData[key];
+        const injected = [];
+        for (let i = 0; i < day.length - 1; i++) {
+          injected.push(day[i]);
+          const gapStart = toMins(day[i].end);
+          const gapEnd   = toMins(day[i + 1].start);
+          if (gapStart !== null && gapEnd !== null && gapEnd - gapStart >= 15) {
+            const gapMins = gapEnd - gapStart;
+            injected.push({
+              num:   '',
+              name:  gapMins >= 40 ? 'Lunch' : 'Break',
+              start: day[i].end,
+              end:   day[i + 1].start,
+              type:  'break',
+              room:  '',
+            });
+          }
+        }
+        if (day.length) injected.push(day[day.length - 1]);
+        importedData[key] = injected;
+      });
+    }
 
     const total = Object.values(importedData).reduce((s, v) => s + v.length, 0);
     status.textContent = `✓ Found ${total} periods across ${Object.keys(importedData).length} days`;
