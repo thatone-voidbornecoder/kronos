@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) { res.status(500).json({ error: 'OPENAI_API_KEY not set in environment variables' }); return; }
 
-  const { image, mediaType } = req.body;
+  const { image, mediaType, includeRegistration } = req.body;
   if (!image) { res.status(400).json({ error: 'No image provided' }); return; }
 
   const prompt = `You are parsing a Schoolbox weekly timetable screenshot for a student at an IB school.
@@ -33,21 +33,21 @@ PARSING RULES:
    "Day 4, Period 1, Computer Science HL (12 CSHL FAr[D]), DG69" -> "Computer Science HL"
    "Day 2, HR, Homeroom 1 (12D HR MHi)" -> "Homeroom 1"
 
-3. PERIOD NUMBER: The number after "Period". HR/Homeroom = use 0. Registration = skip entirely.
+3. PERIOD NUMBER: The number after "Period". HR/Homeroom = use 0. Registration = use 0.
 
 4. ROOM: The last token after the final comma, OUTSIDE the parentheses.
    "(12 CSHL FAr[D]), DG69" -> room is "DG69"
    "(12D HR MHi)" -> no room (nothing after closing paren)
    "(12-Tue1-3-ST ST SL2), Mark Bishop Lounge" -> room is "Mark Bishop Lounge"
-   If room looks like a building code (e.g. DG69, CF59, BS13, EF101): keep as-is.
-   If room is a named place (e.g. "Design Lab", "Mark Bishop Lounge"): keep as-is.
 
 5. TYPE:
    - "break" if name contains: Break, Lunch, Registration
    - "study" if name contains: Study, Study Time
    - "class" for everything else (including Homeroom, TOK, Islamic B, French, etc.)
 
-6. SKIP: Any block that says "Registration" - do not include it in the output.
+6. REGISTRATION: ${includeRegistration
+    ? 'INCLUDE Registration blocks in the output. Set type to "class" and num to "0".'
+    : 'SKIP any block that says "Registration" — do not include it in the output.'}
 
 7. TIMES: Read the bold time range shown at the top of each block (e.g. "7:50am - 9:10am").
    Convert to 24h HH:MM format: 7:50am -> 07:50, 1:55pm -> 13:55, 12:10pm -> 12:10
@@ -131,12 +131,13 @@ Extract ALL periods from ALL visible days. Do not skip any non-Registration bloc
       return;
     }
 
-    // Sanitise all fields so the frontend always gets clean, consistent data
+    // Sanitise all fields
     const VALID_DAYS  = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
     const VALID_TYPES = new Set(['class', 'break', 'study']);
 
     periods = periods
-      .filter(p => p?.name && !p.name.toLowerCase().includes('registration'))
+      .filter(p => p?.name)
+      .filter(p => includeRegistration ? true : !p.name.toLowerCase().includes('registration'))
       .filter(p => VALID_DAYS.has(p.day))
       .map(p => ({
         day:   p.day,
