@@ -1616,22 +1616,75 @@ function updateDisplayDayTabs() {
 }
 
 /* ══ STREAK ══ */
-function getStreak() { try{return JSON.parse(localStorage.getItem('ct_streak')||'{"count":0,"lastDay":""}');}catch(e){return{count:0,lastDay:''};} }
-function updateStreak() {
-  const today=new Date().toISOString().split('T')[0]; const s=getStreak();
-  const yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
-  const yStr=yesterday.toISOString().split('T')[0];
-  if(s.lastDay===today)return;
-  const ns={count:(s.lastDay===yStr)?s.count+1:1,lastDay:today};
-  localStorage.setItem('ct_streak',JSON.stringify(ns));
-  const uid=session?.user?.id;
-  if(uid) sbPatch('profiles',`user_id=eq.${uid}`,{streak:ns.count}).catch(()=>{});
+// Source of truth is Supabase profiles.streak + profiles.streak_updated.
+// localStorage is only a cache so the UI renders instantly on load.
+// Streak only increments on Mon–Fri (school days).
+
+function getStreakCache() {
+  try { return JSON.parse(localStorage.getItem('kronos_streak') || '{"count":0,"lastDay":""}'); }
+  catch(e) { return { count: 0, lastDay: '' }; }
 }
+
+function isWeekday(dateStr) {
+  // dateStr is YYYY-MM-DD
+  const d = new Date(dateStr + 'T12:00:00'); // noon to avoid DST edge cases
+  const day = d.getDay(); // 0=Sun, 6=Sat
+  return day >= 1 && day <= 5;
+}
+
+async function updateStreak() {
+  const today = new Date().toISOString().split('T')[0];
+
+  // Only count school days
+  if (!isWeekday(today)) return;
+
+  const uid = session?.user?.id;
+  if (!uid) return;
+
+  // Always fetch the live value from Supabase first
+  let serverStreak = 0, serverUpdated = '';
+  try {
+    const rows = await sbGet('profiles', `user_id=eq.${uid}&select=streak,streak_updated`);
+    if (Array.isArray(rows) && rows[0]) {
+      serverStreak  = rows[0].streak || 0;
+      serverUpdated = rows[0].streak_updated || '';
+    }
+  } catch(e) {}
+
+  // Already recorded today — just sync cache and render
+  if (serverUpdated === today) {
+    localStorage.setItem('kronos_streak', JSON.stringify({ count: serverStreak, lastDay: today }));
+    renderStreak();
+    return;
+  }
+
+  // Work out what yesterday was (the last valid school day could be Friday if today is Monday)
+  const yesterday = new Date(today + 'T12:00:00');
+  yesterday.setDate(yesterday.getDate() - 1);
+  // Walk backwards to find the last weekday (handles Mon correctly — prev school day = Fri)
+  while (yesterday.getDay() === 0 || yesterday.getDay() === 6) {
+    yesterday.setDate(yesterday.getDate() - 1);
+  }
+  const prevSchoolDay = yesterday.toISOString().split('T')[0];
+
+  const newCount = (serverUpdated === prevSchoolDay) ? serverStreak + 1 : 1;
+
+  // Write to Supabase
+  try {
+    await sbPatch('profiles', `user_id=eq.${uid}`, { streak: newCount, streak_updated: today });
+  } catch(e) { console.warn('Streak save failed', e); }
+
+  // Update local cache
+  localStorage.setItem('kronos_streak', JSON.stringify({ count: newCount, lastDay: today }));
+  renderStreak();
+}
+
 function renderStreak() {
-  const s=getStreak();
-  const badge=document.getElementById('streak-badge'); const disp=document.getElementById('streak-display');
-  badge.textContent=s.count>1?`🔥 ${s.count} DAY STREAK`:'';
-  if(disp) disp.textContent=s.count>1?`🔥 ${s.count} DAY STREAK`:'';
+  const s = getStreakCache();
+  const badge = document.getElementById('streak-badge');
+  const disp  = document.getElementById('streak-display');
+  if (badge) badge.textContent = s.count > 1 ? `🔥 ${s.count} DAY STREAK` : '';
+  if (disp)  disp.textContent  = s.count > 1 ? `🔥 ${s.count} DAY STREAK` : '';
 }
 
 /* ══ PERIOD HISTORY ══ */
@@ -2473,17 +2526,27 @@ function updateBellUI() {
 
 function scheduleNotifForPeriod(period, endMinutes) {
   if (!notificationsEnabled || !swRegistration) return;
+
+  // swRegistration.active can be null briefly after first install — wait for it
+  const sw = swRegistration.active;
+  if (!sw) {
+    // Retry once the SW activates (fires when it becomes active)
+    navigator.serviceWorker.ready.then(() => scheduleNotifForPeriod(period, endMinutes));
+    return;
+  }
+
   const nowM = new Date().getHours() * 60 + new Date().getMinutes();
   const nowS = new Date().getSeconds();
   const remaining = (endMinutes - nowM) * 60 - nowS;
   const warnAt = remaining - 5 * 60; // 5 min before end
   if (warnAt <= 0) return; // less than 5 min left, skip
 
-  const tag = `period-end-${period.name}`;
-  if (scheduledNotifTag === tag) return; // already scheduled
+  // FIX: include start time in tag so same subject twice in one day both get scheduled
+  const tag = `period-end-${period.name}-${period.start}`;
+  if (scheduledNotifTag === tag) return; // already scheduled for this exact period
   scheduledNotifTag = tag;
 
-  swRegistration.active?.postMessage({
+  sw.postMessage({
     type: 'SCHEDULE_NOTIFICATION',
     delayMs: warnAt * 1000,
     title: 'Kronos — 5 minutes left',
@@ -2612,7 +2675,7 @@ async function renderLeaderboard() {
   body.innerHTML = '<div class="lb-empty">Loading…</div>';
 
   const myId = session?.user?.id;
-  const myStreak = getStreak().count;
+  const myStreak = getStreakCache().count;
   const myName = userProfile?.name || 'You';
   const myUsername = userProfile?.username || '';
 
