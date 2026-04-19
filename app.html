@@ -862,6 +862,71 @@ body { padding-right: 52px; }
   .right-panel { align-items:center; text-align:center; padding:2rem 1.5rem; }
   .side-drawer { width:100vw; right:-100vw; }
 }
+
+  /* ── SUBJECT COLOUR CODING ── */
+.color-swatch {
+  width: 22px; height: 22px; border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  cursor: pointer; flex-shrink: 0;
+  transition: transform 0.15s, box-shadow 0.15s;
+  display: inline-block; vertical-align: middle;
+}
+.color-swatch:hover { transform: scale(1.18); box-shadow: 0 0 8px rgba(255,255,255,0.25); }
+
+.color-palette-popup {
+  position: absolute; z-index: 4000;
+  background: var(--panel); border: 1px solid var(--border);
+  padding: 0.55rem; display: flex; flex-wrap: wrap;
+  gap: 0.35rem; width: 162px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.7);
+}
+.color-palette-popup .cp-swatch {
+  width: 24px; height: 24px; border-radius: 4px;
+  cursor: pointer; border: 1.5px solid rgba(255,255,255,0.1);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.color-palette-popup .cp-swatch:hover { transform: scale(1.2); box-shadow: 0 0 8px rgba(255,255,255,0.3); }
+.color-palette-popup .cp-clear {
+  width: 100%; font-family: 'Orbitron', sans-serif; font-size: 0.5rem;
+  letter-spacing: 0.1em; color: var(--dim-text); background: transparent;
+  border: 1px solid var(--dim); padding: 0.2rem; cursor: pointer;
+  transition: all 0.15s; text-align: center;
+}
+.color-palette-popup .cp-clear:hover { border-color: var(--red); color: var(--red); box-shadow: none; }
+.color-palette-popup .cp-wheel {
+  width: 100%; font-family: 'Orbitron', sans-serif; font-size: 0.5rem;
+  letter-spacing: 0.1em; color: var(--dim-text); background: transparent;
+  border: 1px solid var(--dim); padding: 0.2rem; cursor: pointer;
+  transition: all 0.15s; text-align: center; margin-top: 0.1rem;
+}
+.color-palette-popup .cp-wheel:hover { border-color: var(--gold); color: var(--gold); box-shadow: none; }
+.color-palette-popup input[type="color"] {
+  display: none;
+}
+
+/* account panel colour grid */
+.acct-color-grid {
+  display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.4rem;
+}
+.acct-color-row {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.3rem 0; border-bottom: 1px solid rgba(26,26,48,0.4);
+}
+.acct-color-subject { flex: 1; font-size: 0.65rem; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-color-swatch {
+  width: 22px; height: 22px; border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  cursor: pointer; flex-shrink: 0; transition: transform 0.15s;
+}
+.acct-color-swatch:hover { transform: scale(1.15); }
+.acct-color-clear {
+  background: transparent; border: none; color: var(--dim-text);
+  font-size: 0.7rem; cursor: pointer; padding: 0 0.2rem;
+  transition: color 0.15s; flex-shrink: 0;
+}
+.acct-color-clear:hover { color: var(--red); }
+.acct-color-empty { font-size: 0.62rem; color: var(--dim-text); padding: 0.5rem 0; }
+  
 </style>
 </head>
 <body>
@@ -911,7 +976,7 @@ body { padding-right: 52px; }
   </div>
   <div class="setup-table-wrap">
     <table>
-      <thead><tr><th>Period #</th><th>Period Name</th><th>Start</th><th>End</th><th>Type</th><th>Room</th><th></th></tr></thead>
+      <thead><tr><th>Period #</th><th>Period Name</th><th>Start</th><th>End</th><th>Type</th><th>Room</th><th>Color</th><th></th></tr></thead>
       <tbody id="table-body"></tbody>
     </table>
   </div>
@@ -1189,6 +1254,16 @@ body { padding-right: 52px; }
 
     <div class="acct-divider"></div>
 
+    <!-- Subject Colours -->
+    <div>
+      <div class="acct-section-title">SUBJECT COLOURS</div>
+      <div class="acct-color-grid" id="acct-color-grid">
+        <div class="acct-color-empty">No subjects with colours yet.<br>Assign colours in the setup table.</div>
+      </div>
+    </div>
+
+    <div class="acct-divider"></div>
+
     <!-- Danger zone -->
     <div>
       <div class="acct-section-title">SESSION</div>
@@ -1394,11 +1469,20 @@ async function init() {
   userProfile = JSON.parse(localStorage.getItem('kronos_user') || '{}');
   // Load username + programme from profiles table
   try {
-    const prof = await sbGet('profiles', `user_id=eq.${session.user?.id}&select=username,programme,display_name`);
+    const prof = await sbGet('profiles', `user_id=eq.${session.user?.id}&select=username,programme,display_name,colors_data`);
     if (Array.isArray(prof) && prof[0]) {
       if (prof[0].username)    userProfile.username    = prof[0].username;
       if (prof[0].programme)   userProfile.programme   = prof[0].programme;
       if (prof[0].display_name) userProfile.name = prof[0].display_name;
+      // Load subject colours from Supabase (overwrites local cache if server has data)
+      if (prof[0].colors_data) {
+        try {
+          const serverColors = typeof prof[0].colors_data === 'string'
+            ? JSON.parse(prof[0].colors_data) : prof[0].colors_data;
+          subjectColors = { ...subjectColors, ...serverColors };
+          localStorage.setItem('kronos_colors', JSON.stringify(subjectColors));
+        } catch(e) {}
+      }
       localStorage.setItem('kronos_user', JSON.stringify(userProfile));
     } else {
       // No profile row yet (old account) — create one now
@@ -1544,7 +1628,9 @@ function saveCurrentRows() {
   timetableData[setupKey()] = Array.from(document.querySelectorAll('#table-body tr')).map(r => {
     const inp = r.querySelectorAll('input'); const sel = r.querySelector('select');
     // inp[0]=num, inp[1]=name, inp[2]=start, inp[3]=end, inp[4]=room
-    return { num: inp[0].value, name: inp[1].value, start: inp[2].value, end: inp[3].value, type: sel.value, room: inp[4]?.value || '' };
+    const subjectName = inp[1].value.trim();
+    // persist colour to subjectColors keyed by name whenever it changes
+    return { num: inp[0].value, name: subjectName, start: inp[2].value, end: inp[3].value, type: sel.value, room: inp[4]?.value || '' };
   });
 }
 function loadDayRows() {
@@ -1565,6 +1651,7 @@ function addRow(num='', name='', start='', end='', type='class', room='') {
   const tbody = document.getElementById('table-body');
   const idx = tbody.rows.length; const tr = document.createElement('tr');
   setRowClass(tr, type);
+  const existingColor = name ? (subjectColors[name] || '') : '';
   tr.innerHTML = `
     <td><input type="number" min="1" max="30" value="${num||(type==='class'?idx+1:'')}" style="width:52px"></td>
     <td style="position:relative">
@@ -1576,8 +1663,16 @@ function addRow(num='', name='', start='', end='', type='class', room='') {
     <td><input type="time" value="${end}"></td>
     <td><select class="type-select"><option value="class" ${type==='class'?'selected':''}>Class</option><option value="break" ${type==='break'?'selected':''}>Break</option><option value="study" ${type==='study'?'selected':''}>Study</option></select></td>
     <td><input type="text" placeholder="e.g. DG69" value="${room}" style="width:72px;background:transparent;border:none;border-bottom:1px solid var(--dim);color:#bbb;font-family:'Share Tech Mono',monospace;font-size:0.84rem;padding:0.28rem 0.2rem;outline:none;" oninput="this.style.borderBottomColor='var(--gold)'"></td>
+    <td><span class="color-swatch" title="Set subject color" style="background:${existingColor||'var(--dim)'}"></span></td>
     <td><button class="danger" onclick="this.closest('tr').remove()">✕</button></td>`;
   tr.querySelector('select').addEventListener('change', e => setRowClass(tr, e.target.value));
+  // Wire up the colour swatch
+  const swatch = tr.querySelector('.color-swatch');
+  swatch.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const nameInp = tr.querySelector('input[type="text"]');
+    openPalettePopup(swatch, nameInp);
+  });
   tbody.appendChild(tr);
 }
 function setRowClass(tr, type) {
@@ -1738,7 +1833,9 @@ function checkPeriodHistory(periods,nowM) {
   container.innerHTML=completedPeriods.map(p=>{
     const cls=p.type==='break'?'break-pill':p.type==='study'?'study-pill':'class-pill';
     const icon=p.type==='break'?'☕ ':p.type==='study'?'📖 ':'';
-    return `<span class="history-pill ${cls}">${icon}${p.name}</span>`;
+    const col=applySubjectColor(p.name,p.type||'class');
+    const colStyle=col?`border-color:${col}55;color:${col};`:'';
+    return `<span class="history-pill ${cls}" style="${colStyle}">${icon}${p.name}</span>`;
   }).join('');
 }
 
@@ -1835,6 +1932,8 @@ function tick(){
       trEl.textContent=fmtCountdown(remaining); trEl.className='time-remaining break-timer';
       emEl.textContent=BREAK_EMOJIS[emojiCycle%BREAK_EMOJIS.length];
       nameEl.textContent=current.name||'Break'; nameEl.className='current-class-name break-name'; nowTag.textContent='☕ BREAK';
+      nameEl.style.color=''; nameEl.style.textShadow=''; pf.style.background=''; pf.style.boxShadow='';
+      document.getElementById('school-day-fill').style.background=''; document.getElementById('school-day-fill').style.boxShadow='';
     } else if(t==='study'){
       dayMode='study'; if(lastQuoteType!=='study')pickQuote('study');
       lp.className='left-panel study-bg'; divEl.className='divider study-div';
@@ -1844,6 +1943,8 @@ function tick(){
       trEl.textContent=fmtCountdown(remaining); trEl.className='time-remaining study-timer';
       emEl.textContent=STUDY_EMOJIS[emojiCycle%STUDY_EMOJIS.length];
       nameEl.textContent=current.name||'Study Period'; nameEl.className='current-class-name study-name'; nowTag.textContent='📖 STUDY';
+      nameEl.style.color=''; nameEl.style.textShadow=''; pf.style.background=''; pf.style.boxShadow='';
+      document.getElementById('school-day-fill').style.background=''; document.getElementById('school-day-fill').style.boxShadow='';
     } else {
       dayMode='class'; if(lastQuoteType!=='class')pickQuote('class');
       const nearEnd=pct>=85;
@@ -1854,6 +1955,14 @@ function tick(){
       trEl.textContent=fmtCountdown(remaining); trEl.className='time-remaining';
       scheduleNotifForPeriod(current, toMin(current.end));
       emEl.textContent=''; nameEl.textContent=current.name; nameEl.className='current-class-name'; nowTag.textContent='NOW';
+      // Apply subject colour to current period name + progress bar + school day bar
+      const curCol = applySubjectColor(current.name, t);
+      nameEl.style.color = curCol || '';
+      nameEl.style.textShadow = curCol ? `0 0 25px ${curCol}88` : '';
+      pf.style.background = curCol ? `linear-gradient(90deg,${curCol},${curCol}99)` : '';
+      pf.style.boxShadow = curCol ? `0 0 10px ${curCol}88` : '';
+      document.getElementById('school-day-fill').style.background = curCol ? `linear-gradient(90deg,${curCol},${curCol}99)` : '';
+      document.getElementById('school-day-fill').style.boxShadow = curCol ? `0 0 6px ${curCol}88` : '';
     }
     document.getElementById('current-time').textContent=`${fmtTime(current.start)} – ${fmtTime(current.end)}`;
   } else {
@@ -1866,11 +1975,17 @@ function tick(){
     emEl.textContent=''; nameEl.textContent='— No Class Now —'; nameEl.className='current-class-name';
     document.getElementById('current-time').textContent=''; nowTag.textContent='NOW';
   }
-  if(next){
+if(next){
     const icon=next.type==='break'?'☕ ':next.type==='study'?'📖 ':'';
-    document.getElementById('next-name').textContent=icon+next.name;
+    const nextEl=document.getElementById('next-name');
+    nextEl.textContent=icon+next.name;
     document.getElementById('next-time').textContent=`${fmtTime(next.start)} – ${fmtTime(next.end)}`;
+    const nextCol=applySubjectColor(next.name,next.type||'class');
+    nextEl.style.color=nextCol||'';
+    nextEl.style.textShadow=nextCol?`0 0 12px ${nextCol}66`:'';
   } else {
+    document.getElementById('next-name').style.color='';
+    document.getElementById('next-name').style.textShadow='';
     document.getElementById('next-name').textContent=periods.length?'Done for today! 🎉':'No classes set';
     document.getElementById('next-time').textContent='';
   }
@@ -2475,6 +2590,8 @@ function toggleAccountPanel() {
     }
     // Sync programme buttons to current state
     applyProgramme(userProfile?.programme || currentProgramme);
+    // Render subject colour grid
+    renderAcctColorGrid();
     const msgEl = document.getElementById('acct-prog-msg');
     if (msgEl) { msgEl.textContent = ''; msgEl.className = 'acct-msg'; }
   }
@@ -3099,6 +3216,174 @@ function saveNickname(clear = false) {
   renderFriendsSidebar(); // re-render to show updated name
 }
 
+  /* ══════════════════════════════════════════════════
+   SUBJECT COLOUR CODING
+   subjectColors maps subject name → hex string e.g. '#e74c3c'
+   Stored in localStorage. Synced to Supabase profiles.colors on save.
+══════════════════════════════════════════════════ */
+let subjectColors = JSON.parse(localStorage.getItem('kronos_colors') || '{}');
+
+const KRONOS_PALETTE = [
+  '#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c',
+  '#3498db','#9b59b6','#e91e8c','#00d4ff','#b8ff3c',
+  '#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff',
+];
+
+function saveSubjectColors() {
+  localStorage.setItem('kronos_colors', JSON.stringify(subjectColors));
+  // Persist to Supabase profiles.colors_data so it syncs across devices
+  const uid = session?.user?.id;
+  if (uid) {
+    sbPatch('profiles', `user_id=eq.${uid}`, { colors_data: JSON.stringify(subjectColors) }).catch(() => {});
+  }
+}
+
+function getSubjectColor(name) {
+  if (!name) return null;
+  return subjectColors[name] || null;
+}
+
+/* ── Palette popup ── */
+let activePalettePopup = null;
+
+function closePalettePopup() {
+  if (activePalettePopup) { activePalettePopup.remove(); activePalettePopup = null; }
+}
+
+function openPalettePopup(anchorEl, nameInputEl) {
+  closePalettePopup();
+  const popup = document.createElement('div');
+  popup.className = 'color-palette-popup';
+
+  // Curated swatches
+  KRONOS_PALETTE.forEach(hex => {
+    const sw = document.createElement('div');
+    sw.className = 'cp-swatch';
+    sw.style.background = hex;
+    sw.title = hex;
+    sw.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const subjectName = nameInputEl.value.trim();
+      if (subjectName) {
+        subjectColors[subjectName] = hex;
+        saveSubjectColors();
+        anchorEl.style.background = hex;
+        renderAcctColorGrid();
+      }
+      closePalettePopup();
+    });
+    popup.appendChild(sw);
+  });
+
+  // Color wheel button → hidden native color input
+  const wheelBtn = document.createElement('button');
+  wheelBtn.className = 'cp-wheel';
+  wheelBtn.textContent = '🎨 CUSTOM COLOR';
+  const colorInput = document.createElement('input');
+  colorInput.type = 'color';
+  const subjectName = nameInputEl.value.trim();
+  colorInput.value = (subjectName && subjectColors[subjectName]) || '#f5a623';
+  colorInput.addEventListener('input', () => {
+    const name = nameInputEl.value.trim();
+    if (name) {
+      subjectColors[name] = colorInput.value;
+      saveSubjectColors();
+      anchorEl.style.background = colorInput.value;
+      renderAcctColorGrid();
+    }
+  });
+  colorInput.addEventListener('change', () => closePalettePopup());
+  wheelBtn.addEventListener('click', (e) => { e.stopPropagation(); colorInput.click(); });
+  popup.appendChild(wheelBtn);
+  popup.appendChild(colorInput);
+
+  // Clear button
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'cp-clear';
+  clearBtn.textContent = 'CLEAR COLOR';
+  clearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const name = nameInputEl.value.trim();
+    if (name) { delete subjectColors[name]; saveSubjectColors(); }
+    anchorEl.style.background = 'var(--dim)';
+    renderAcctColorGrid();
+    closePalettePopup();
+  });
+  popup.appendChild(clearBtn);
+
+  // Position popup below the swatch
+  document.body.appendChild(popup);
+  activePalettePopup = popup;
+  const rect = anchorEl.getBoundingClientRect();
+  popup.style.position = 'fixed';
+  popup.style.top = (rect.bottom + 6) + 'px';
+  popup.style.left = Math.min(rect.left, window.innerWidth - 180) + 'px';
+
+  // Close on outside click
+  setTimeout(() => document.addEventListener('click', closePalettePopup, { once: true }), 0);
+}
+
+/* ── Account panel color grid ── */
+function renderAcctColorGrid() {
+  const grid = document.getElementById('acct-color-grid');
+  if (!grid) return;
+  const entries = Object.entries(subjectColors);
+  if (!entries.length) {
+    grid.innerHTML = '<div class="acct-color-empty">No subjects with colours yet.<br>Assign colours in the setup table.</div>';
+    return;
+  }
+  grid.innerHTML = entries.map(([name, color]) => `
+    <div class="acct-color-row">
+      <div class="acct-color-subject" title="${escHtml(name)}">${escHtml(name)}</div>
+      <div class="acct-color-swatch" style="background:${color}"
+           onclick="openAcctColorWheel('${escHtml(name)}', this)" title="Change color"></div>
+      <button class="acct-color-clear" onclick="clearSubjectColor('${escHtml(name)}')" title="Remove color">✕</button>
+    </div>
+  `).join('');
+}
+
+function openAcctColorWheel(name, swatchEl) {
+  const input = document.createElement('input');
+  input.type = 'color';
+  input.value = subjectColors[name] || '#f5a623';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('input', () => {
+    subjectColors[name] = input.value;
+    swatchEl.style.background = input.value;
+    saveSubjectColors();
+    // Update any matching swatch in the setup table
+    updateSetupTableSwatches();
+  });
+  input.addEventListener('change', () => { input.remove(); renderAcctColorGrid(); });
+  input.click();
+}
+
+function clearSubjectColor(name) {
+  delete subjectColors[name];
+  saveSubjectColors();
+  renderAcctColorGrid();
+  updateSetupTableSwatches();
+}
+
+function updateSetupTableSwatches() {
+  document.querySelectorAll('#table-body tr').forEach(tr => {
+    const nameInp = tr.querySelector('input[type="text"]');
+    const swatch = tr.querySelector('.color-swatch');
+    if (!nameInp || !swatch) return;
+    const col = subjectColors[nameInp.value.trim()];
+    swatch.style.background = col || 'var(--dim)';
+  });
+}
+
+/* ── Apply colour to display elements ── */
+function applySubjectColor(name, type) {
+  // Returns inline style strings for various elements based on subject color
+  // Falls back gracefully to existing type-based colours if no custom color set
+  const col = getSubjectColor(name);
+  if (!col || type === 'break' || type === 'study') return null;
+  return col;
+}
 
 init();
 </script>
