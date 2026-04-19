@@ -911,8 +911,7 @@ body { padding-right: 52px; }
   </div>
   <div class="setup-table-wrap">
     <table>
-      <thead><tr><th>Period #</th><th>Period Name</th><th>Start</th><th>End</th><th>Type</th><th></th></tr></thead>
-      <tbody id="table-body"></tbody>
+      <thead><tr><th>Period #</th><th>Period Name</th><th>Start</th><th>End</th><th>Type</th><th>Room</th><th></th></tr></thead>
     </table>
   </div>
   <div class="btn-row">
@@ -1507,14 +1506,15 @@ function switchSetupWeek(w) {
 function saveCurrentRows() {
   timetableData[setupKey()] = Array.from(document.querySelectorAll('#table-body tr')).map(r => {
     const inp = r.querySelectorAll('input'); const sel = r.querySelector('select');
-    return { num: inp[0].value, name: inp[1].value, start: inp[2].value, end: inp[3].value, type: sel.value };
+    // inp[0]=num, inp[1]=name, inp[2]=start, inp[3]=end, inp[4]=room
+    return { num: inp[0].value, name: inp[1].value, start: inp[2].value, end: inp[3].value, type: sel.value, room: inp[4]?.value || '' };
   });
 }
 function loadDayRows() {
   document.getElementById('table-body').innerHTML = '';
   const data = timetableData[setupKey()];
   if (!data || !data.length) { addRow(); return; }
-  data.forEach(d => addRow(d.num, d.name, d.start, d.end, d.type || 'class'));
+  data.forEach(d => addRow(d.num, d.name, d.start, d.end, d.type || 'class', d.room || ''));
 }
 function copyFromDay() {
   const from = document.getElementById('copy-from').value;
@@ -1524,7 +1524,7 @@ function copyFromDay() {
   timetableData[cur] = (timetableData[from] || []).map(r => ({ ...r }));
   loadDayRows();
 }
-function addRow(num='', name='', start='', end='', type='class') {
+function addRow(num='', name='', start='', end='', type='class', room='') {
   const tbody = document.getElementById('table-body');
   const idx = tbody.rows.length; const tr = document.createElement('tr');
   setRowClass(tr, type);
@@ -1538,6 +1538,7 @@ function addRow(num='', name='', start='', end='', type='class') {
     <td><input type="time" value="${start}"></td>
     <td><input type="time" value="${end}"></td>
     <td><select class="type-select"><option value="class" ${type==='class'?'selected':''}>Class</option><option value="break" ${type==='break'?'selected':''}>Break</option><option value="study" ${type==='study'?'selected':''}>Study</option></select></td>
+    <td><input type="text" placeholder="e.g. DG69" value="${room}" style="width:72px;background:transparent;border:none;border-bottom:1px solid var(--dim);color:#bbb;font-family:'Share Tech Mono',monospace;font-size:0.84rem;padding:0.28rem 0.2rem;outline:none;" oninput="this.style.borderBottomColor='var(--gold)'"></td>
     <td><button class="danger" onclick="this.closest('tr').remove()">✕</button></td>`;
   tr.querySelector('select').addEventListener('change', e => setRowClass(tr, e.target.value));
   tbody.appendChild(tr);
@@ -1933,13 +1934,25 @@ function addEntry(subject){ if(!grades[subject])grades[subject]=[]; grades[subje
 function delEntry(subject,idx){ grades[subject].splice(idx,1); saveGrades(); renderGrades(); }
 function delSubject(subject){ if(!confirm(`Delete ${subject}?`))return; delete grades[subject]; saveGrades(); renderGrades(); }
 function updateEntry(subject,idx,field,val){ if(grades[subject])grades[subject][idx][field]=val; saveGrades(); updateAvg(subject); }
+function pctToIB(pct) {
+  // IB grade boundaries (standard DP thresholds)
+  if (pct >= 88) return { grade: 7, cls: 'grade-a' };
+  if (pct >= 76) return { grade: 6, cls: 'grade-a' };
+  if (pct >= 64) return { grade: 5, cls: 'grade-b' };
+  if (pct >= 52) return { grade: 4, cls: 'grade-b' };
+  if (pct >= 40) return { grade: 3, cls: 'grade-c' };
+  if (pct >= 28) return { grade: 2, cls: 'grade-d' };
+  return { grade: 1, cls: 'grade-d' };
+}
+
 function updateAvg(subject){
   const el=document.getElementById('avg-'+subject.replace(/[^a-zA-Z0-9]/g,'_')); if(!el)return;
   const entries=(grades[subject]||[]).filter(e=>e.score!==''&&e.max!=='');
   if(!entries.length){el.textContent='—';el.className='grade-avg-num';return;}
   const pct=entries.reduce((a,e)=>a+(parseFloat(e.score)/parseFloat(e.max)*100),0)/entries.length;
-  el.textContent=pct.toFixed(1)+'%';
-  el.className='grade-avg-num '+(pct>=80?'grade-a':pct>=65?'grade-b':pct>=50?'grade-c':'grade-d');
+  const ib = pctToIB(pct);
+  el.textContent=`${ib.grade} · ${pct.toFixed(1)}%`;
+  el.className='grade-avg-num '+ib.cls;
 }
 function renderGrades(){
   const body=document.getElementById('grade-body');
@@ -2109,41 +2122,54 @@ function computeFriendStatus(timetable, overrideJson) {
   if (!weekdays.includes(todayName)) return { type: 'offline', name: 'Weekend' };
 
   // Try W1 and W2 keys, fall back to plain day key
-  const now = new Date();
+const now = new Date();
   const nowM = now.getHours() * 60 + now.getMinutes();
 
-  const keysToTry = [`${todayName}_W1`, `${todayName}_W2`, todayName];
-  let periods = [];
-  for (const k of keysToTry) {
-    if (timetable[k] && timetable[k].length) { periods = timetable[k]; break; }
-  }
-  if (!periods.length) return { type: 'offline', name: '' };
-
-  const sorted = periods
-    .filter(p => p.name && p.start && p.end)
-    .sort((a, b) => a.start.localeCompare(b.start));
-
-  for (const p of sorted) {
-    const [sh, sm] = p.start.split(':').map(Number);
-    const [eh, em] = p.end.split(':').map(Number);
-    const startM = sh * 60 + sm;
-    const endM   = eh * 60 + em;
-    if (nowM >= startM && nowM < endM) {
-      return { type: p.type || 'class', name: p.name };
+  // Helper: given a list of periods, find the active one right now
+  function findActivePeriod(periods) {
+    const sorted = periods
+      .filter(p => p.name && p.start && p.end)
+      .sort((a, b) => a.start.localeCompare(b.start));
+    for (const p of sorted) {
+      const [sh, sm] = p.start.split(':').map(Number);
+      const [eh, em] = p.end.split(':').map(Number);
+      if (nowM >= sh * 60 + sm && nowM < eh * 60 + em) return p;
     }
-  }
-  // Before first period or after last
-  const firstStart = sorted[0]?.start;
-  const lastEnd    = sorted[sorted.length - 1]?.end;
-  if (firstStart && lastEnd) {
-    const [fh, fm] = firstStart.split(':').map(Number);
-    const [lh, lm] = lastEnd.split(':').map(Number);
-    if (nowM < fh * 60 + fm || nowM >= lh * 60 + lm) {
-      return { type: 'offline', name: '' };
+    // Check if we're within school hours at all (between first start and last end)
+    if (sorted.length) {
+      const [fh, fm] = sorted[0].start.split(':').map(Number);
+      const [lh, lm] = sorted[sorted.length - 1].end.split(':').map(Number);
+      if (nowM >= fh * 60 + fm && nowM < lh * 60 + lm) return 'between'; // gap between periods
     }
+    return null;
   }
+
+  // Try both weeks — whichever has an active period right now wins.
+  // If neither has a live period, fall back to whichever week has any data (W1 first).
+  const w1periods = (timetable[`${todayName}_W1`] || []);
+  const w2periods = (timetable[`${todayName}_W2`] || []);
+  const legacyPeriods = (timetable[todayName] || []);
+
+  const w1hit = findActivePeriod(w1periods);
+  const w2hit = findActivePeriod(w2periods);
+
+  // Pick the week that has a live class right now
+  let activePeriod = null;
+  if (w1hit && w1hit !== 'between') activePeriod = w1hit;
+  else if (w2hit && w2hit !== 'between') activePeriod = w2hit;
+
+  if (activePeriod) return { type: activePeriod.type || 'class', name: activePeriod.name };
+
+  // No live period — check if they're at least within school hours on either week
+  const inSchool = (w1hit === 'between') || (w2hit === 'between') ||
+    findActivePeriod(legacyPeriods) === 'between';
+  if (inSchool) return { type: 'free', name: 'Between periods' };
+
+  // Check legacy single-week key as final fallback
+  const legacyHit = findActivePeriod(legacyPeriods);
+  if (legacyHit && legacyHit !== 'between') return { type: legacyHit.type || 'class', name: legacyHit.name };
+
   return { type: 'offline', name: '' };
-}
 
 async function loadFriends() {
   await refreshIfNeeded();
