@@ -912,6 +912,7 @@ body { padding-right: 52px; }
   <div class="setup-table-wrap">
     <table>
       <thead><tr><th>Period #</th><th>Period Name</th><th>Start</th><th>End</th><th>Type</th><th>Room</th><th></th></tr></thead>
+      <tbody id="table-body"></tbody>
     </table>
   </div>
   <div class="btn-row">
@@ -1391,9 +1392,6 @@ async function init() {
   }
 
   userProfile = JSON.parse(localStorage.getItem('kronos_user') || '{}');
-  // Load username + programme from profiles table
-  try {
-    const prof = await sbGet('profiles', `user_id=eq.${session.user?.id}&select=username,programme,display_name`);
   // Load username + programme from profiles table
   try {
     const prof = await sbGet('profiles', `user_id=eq.${session.user?.id}&select=username,programme,display_name`);
@@ -2209,6 +2207,7 @@ const now = new Date();
   if (legacyHit && legacyHit !== 'between') return { type: legacyHit.type || 'class', name: legacyHit.name };
 
   return { type: 'offline', name: '' };
+}
 
 async function loadFriends() {
   await refreshIfNeeded();
