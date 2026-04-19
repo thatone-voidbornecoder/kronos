@@ -3,7 +3,7 @@
    Handles: PWA caching + Push Notifications
 ═══════════════════════════════════════════════════ */
 
-const CACHE = 'kronos-v1';
+const CACHE = 'kronos-v2';
 const PRECACHE = ['/login.html', '/app.html', '/manifest.json'];
 
 /* ── Install: cache core files ── */
@@ -24,14 +24,12 @@ self.addEventListener('activate', e => {
 
 /* ── Fetch: network first, cache fallback ── */
 self.addEventListener('fetch', e => {
-  // Only handle same-origin GET requests
   if (e.request.method !== 'GET') return;
   if (!e.request.url.startsWith(self.location.origin)) return;
 
   e.respondWith(
     fetch(e.request)
       .then(res => {
-        // Update cache with fresh response
         const clone = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
         return res;
@@ -47,11 +45,11 @@ self.addEventListener('push', e => {
 
   e.waitUntil(
     self.registration.showNotification(data.title, {
-      body:  data.body,
-      icon:  data.icon,
-      badge: data.icon,
-      tag:   data.tag || 'kronos',
-      data:  data.url ? { url: data.url } : {},
+      body:    data.body,
+      icon:    data.icon,
+      badge:   data.icon,
+      tag:     data.tag || 'kronos',
+      data:    data.url ? { url: data.url } : {},
       vibrate: [200, 100, 200],
     })
   );
@@ -71,12 +69,24 @@ self.addEventListener('notificationclick', e => {
 });
 
 /* ── Local notification scheduler ──
-   The app posts messages here to schedule
-   period-end warnings without needing a server ── */
+   FIX 1: store scheduled timers in a Map so we can
+   cancel individual ones (not just close already-shown notifs).
+   FIX 2: tag now includes period start time so same subject
+   twice in one day both get scheduled correctly.
+── */
+const scheduledTimers = new Map();
+
 self.addEventListener('message', e => {
   if (e.data?.type === 'SCHEDULE_NOTIFICATION') {
     const { delayMs, title, body, tag } = e.data;
-    setTimeout(() => {
+
+    // Cancel any existing timer for this exact tag before scheduling a new one
+    if (scheduledTimers.has(tag)) {
+      clearTimeout(scheduledTimers.get(tag));
+      scheduledTimers.delete(tag);
+    }
+
+    const timerId = setTimeout(() => {
       self.registration.showNotification(title, {
         body,
         icon:    'https://i.imgur.com/j7zxM6Z.png',
@@ -84,10 +94,17 @@ self.addEventListener('message', e => {
         tag,
         vibrate: [200, 100, 200],
       });
+      scheduledTimers.delete(tag);
     }, delayMs);
+
+    scheduledTimers.set(tag, timerId);
   }
 
   if (e.data?.type === 'CANCEL_NOTIFICATIONS') {
+    // Clear all pending timers
+    scheduledTimers.forEach(id => clearTimeout(id));
+    scheduledTimers.clear();
+    // Also close any already-shown notifications
     self.registration.getNotifications().then(notifs =>
       notifs.forEach(n => n.close())
     );
