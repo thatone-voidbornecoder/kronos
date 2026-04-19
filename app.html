@@ -1346,7 +1346,6 @@ async function sbUpsert(table, body, onConflict) {
   return res.json();
 }
 
-/* ══ INIT ══ */
 async function init() {
   try {
   session = getSession();
@@ -1354,7 +1353,47 @@ async function init() {
     window.location.href = '/login.html';
     return;
   }
+
+  // Check token isn't expired before doing anything else
+  // Supabase expires_at is in Unix seconds
+  if (session.expires_at && session.expires_at < Date.now() / 1000) {
+    // Try to refresh first — if that fails, send to login
+    if (session.refresh_token) {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+          body: JSON.stringify({ refresh_token: session.refresh_token })
+        });
+        const data = await res.json();
+        if (data.access_token) {
+          session = data;
+          localStorage.setItem('kronos_session', JSON.stringify(data));
+        } else {
+          // Refresh failed — clear and redirect
+          localStorage.removeItem('kronos_session');
+          localStorage.removeItem('kronos_user');
+          window.location.href = '/login.html';
+          return;
+        }
+      } catch(e) {
+        localStorage.removeItem('kronos_session');
+        localStorage.removeItem('kronos_user');
+        window.location.href = '/login.html';
+        return;
+      }
+    } else {
+      localStorage.removeItem('kronos_session');
+      localStorage.removeItem('kronos_user');
+      window.location.href = '/login.html';
+      return;
+    }
+  }
+
   userProfile = JSON.parse(localStorage.getItem('kronos_user') || '{}');
+  // Load username + programme from profiles table
+  try {
+    const prof = await sbGet('profiles', `user_id=eq.${session.user?.id}&select=username,programme,display_name`);
   // Load username + programme from profiles table
   try {
     const prof = await sbGet('profiles', `user_id=eq.${session.user?.id}&select=username,programme,display_name`);
